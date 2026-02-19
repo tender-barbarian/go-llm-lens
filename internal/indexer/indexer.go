@@ -16,8 +16,19 @@ import (
 type Indexer struct {
 	root     string
 	fset     *token.FileSet
-	PkgInfos map[string]*symtab.PackageInfo
-	TypePkgs map[string]*types.Package // all loaded packages, including deps, for Implements checks
+	pkgInfos map[string]*symtab.PackageInfo
+	typePkgs map[string]*types.Package // all loaded packages, including deps, for Implements checks
+}
+
+// TypePkgs returns the map of all type-checked packages keyed by import path.
+// It includes transitive dependencies, not just packages under the root.
+func (idx *Indexer) TypePkgs() map[string]*types.Package {
+	return idx.typePkgs
+}
+
+// PkgInfos returns the map of all indexed packages keyed by import path.
+func (idx *Indexer) PkgInfos() map[string]*symtab.PackageInfo {
+	return idx.pkgInfos
 }
 
 // New creates an Indexer rooted at rootPath. Call Index to load and scan packages.
@@ -51,15 +62,15 @@ func (idx *Indexer) Index() error {
 	}
 
 	idx.fset = fset
-	idx.PkgInfos = make(map[string]*symtab.PackageInfo, len(pkgs))
-	idx.TypePkgs = make(map[string]*types.Package, len(pkgs))
+	idx.pkgInfos = make(map[string]*symtab.PackageInfo, len(pkgs))
+	idx.typePkgs = make(map[string]*types.Package, len(pkgs))
 
 	for _, pkg := range pkgs {
 		if pkg.Types == nil {
 			continue
 		}
 		// Store every loaded package for type-checking (needed for Implements checks).
-		idx.TypePkgs[pkg.PkgPath] = pkg.Types
+		idx.typePkgs[pkg.PkgPath] = pkg.Types
 
 		// Only index packages whose source files live under the root directory.
 		if len(pkg.GoFiles) > 0 && isUnderRoot(pkg.GoFiles[0], idx.root) {
@@ -105,7 +116,7 @@ func (idx *Indexer) indexPackage(pkg *packages.Package) {
 		}
 	}
 
-	idx.PkgInfos[pkg.PkgPath] = info
+	idx.pkgInfos[pkg.PkgPath] = info
 }
 
 // funcInfo extracts symtab.funcInfo from a *types.Func.
