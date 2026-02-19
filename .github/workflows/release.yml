@@ -34,3 +34,8 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate SLSA provenance attestation
+        uses: actions/attest-build-provenance@c074443f1aee8d4aeeae555aebba3282517141b2  # v3.2.0
+        with:
+          subject-path: dist/*.tar.gz, dist/*.zip, dist/checksums.txt
