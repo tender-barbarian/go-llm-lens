@@ -23,10 +23,10 @@ func findImplementationsHandler(f *finder.Finder) server.ToolHandlerFunc {
 			return nil, err
 		}
 
-		types, err := f.FindImplementations(pkgPath, ifaceName)
+		impls, err := f.FindImplementations(pkgPath, ifaceName)
 		if err != nil {
 			return nil, fmt.Errorf("finding implementations of %q: %w", ifaceName, err)
 		}
-		return jsonResult(types)
+		return jsonResult(impls)
 	}
 }
