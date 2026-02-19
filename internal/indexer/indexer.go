@@ -95,9 +95,9 @@ func (idx *Indexer) indexPackage(pkg *packages.Package) {
 		obj := scope.Lookup(name)
 		switch o := obj.(type) {
 		case *types.Func:
-			info.Funcs = append(info.Funcs, idx.FuncInfo(o, pkg.PkgPath, docs))
+			info.Funcs = append(info.Funcs, idx.funcInfo(o, pkg.PkgPath, docs))
 		case *types.TypeName:
-			info.Types = append(info.Types, idx.TypeInfo(o, pkg, docs, fieldDocs))
+			info.Types = append(info.Types, idx.typeInfo(o, pkg, docs, fieldDocs))
 		case *types.Var:
 			info.Vars = append(info.Vars, idx.varInfo(o, pkg.PkgPath, docs, false))
 		case *types.Const:
@@ -108,8 +108,8 @@ func (idx *Indexer) indexPackage(pkg *packages.Package) {
 	idx.PkgInfos[pkg.PkgPath] = info
 }
 
-// FuncInfo extracts symtab.FuncInfo from a *types.Func.
-func (idx *Indexer) FuncInfo(fn *types.Func, pkgPath string, docs map[token.Pos]string) symtab.FuncInfo {
+// funcInfo extracts symtab.funcInfo from a *types.Func.
+func (idx *Indexer) funcInfo(fn *types.Func, pkgPath string, docs map[token.Pos]string) symtab.FuncInfo {
 	sig, ok := fn.Type().(*types.Signature)
 	if !ok {
 		return symtab.FuncInfo{}
@@ -125,8 +125,8 @@ func (idx *Indexer) FuncInfo(fn *types.Func, pkgPath string, docs map[token.Pos]
 	}
 }
 
-// TypeInfo extracts symtab.TypeInfo from a *types.TypeName.
-func (idx *Indexer) TypeInfo(tn *types.TypeName, pkg *packages.Package, docs, fieldDocs map[token.Pos]string) symtab.TypeInfo {
+// typeInfo extracts symtab.typeInfo from a *types.TypeName.
+func (idx *Indexer) typeInfo(tn *types.TypeName, pkg *packages.Package, docs, fieldDocs map[token.Pos]string) symtab.TypeInfo {
 	pos := idx.fset.Position(tn.Pos())
 	ti := symtab.TypeInfo{
 		Name:     tn.Name(),
@@ -197,7 +197,7 @@ func (idx *Indexer) structFields(s *types.Struct, fieldDocs map[token.Pos]string
 func (idx *Indexer) namedMethods(named *types.Named, pkgPath string, docs map[token.Pos]string) []symtab.FuncInfo {
 	result := make([]symtab.FuncInfo, 0, named.NumMethods())
 	for m := range named.Methods() {
-		result = append(result, idx.FuncInfo(m, pkgPath, docs))
+		result = append(result, idx.funcInfo(m, pkgPath, docs))
 	}
 	return result
 }
@@ -206,7 +206,7 @@ func (idx *Indexer) namedMethods(named *types.Named, pkgPath string, docs map[to
 func (idx *Indexer) interfaceMethods(iface *types.Interface, pkgPath string, docs map[token.Pos]string) []symtab.FuncInfo {
 	result := make([]symtab.FuncInfo, 0, iface.NumExplicitMethods())
 	for m := range iface.ExplicitMethods() {
-		result = append(result, idx.FuncInfo(m, pkgPath, docs))
+		result = append(result, idx.funcInfo(m, pkgPath, docs))
 	}
 	return result
 }
