@@ -1,13 +1,34 @@
 package tools
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"go/token"
 
 	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/server"
 	"github.com/tender-barbarian/go-llm-lens/internal/symtab"
 )
+
+const maxInputLen = 2048
+
+// withLengthCheck wraps a handler and rejects any request that contains a
+// string argument longer than maxInputLen bytes.
+func withLengthCheck(next server.ToolHandlerFunc) server.ToolHandlerFunc {
+	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		for field, val := range req.GetArguments() {
+			s, ok := val.(string)
+			if !ok {
+				continue
+			}
+			if len(s) > maxInputLen {
+				return nil, fmt.Errorf("field %q exceeds maximum length of %d bytes", field, maxInputLen)
+			}
+		}
+		return next(ctx, req)
+	}
+}
 
 // jsonResult serialises v to JSON and wraps it in a text tool result.
 func jsonResult(v any) (*mcp.CallToolResult, error) {

@@ -1,6 +1,6 @@
 module github.com/tender-barbarian/go-llm-lens
 
-go 1.25.3
+go 1.25.7
 
 require (
 	github.com/stretchr/testify v1.11.1
