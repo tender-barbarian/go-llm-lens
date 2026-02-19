@@ -23,6 +23,14 @@ func run() error {
 	root := flag.String("root", ".", "Root directory of the Go codebase to index")
 	flag.Parse()
 
+	info, err := os.Stat(*root)
+	if err != nil {
+		return fmt.Errorf("invalid --root: %w", err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("--root %q is not a directory", *root)
+	}
+
 	idx, err := indexer.New(*root)
 	if err != nil {
 		return fmt.Errorf("creating indexer: %w", err)
