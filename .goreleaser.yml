@@ -33,6 +33,7 @@ signs:
       - "--yes"
     artifacts: all
     output: true
+    signature: "${artifact}.bundle"
 
 changelog:
   sort: asc

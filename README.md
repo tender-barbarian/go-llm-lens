@@ -10,6 +10,60 @@ An MCP (Model Context Protocol) server that enables LLMs like Claude to navigate
 
 Instead of reading raw source files line by line, an LLM can call structured tools to explore packages, find symbols, inspect function signatures and type definitions, and discover interface implementations.
 
+**Where it saves tokens:**
+
+- Instead of reading entire files to find a function, `get_function` returns just that function's source
+- Instead of grepping + reading multiple files to understand a type, `get_type` returns the definition directly
+- `find_implementations` replaces multi-step grep → read → parse workflows
+- Structured results are more compact than raw file content with line numbers
+
+**Where it doesn't help much:**
+
+- Simple lookups in small files — Read on a known file is comparable
+- Tasks that require understanding surrounding context (comments, neighboring functions)
+- The tool call itself + its response still consume tokens, so very tiny queries have overhead
+
+The bigger win is probably fewer round trips — less searching in the dark, fewer "read this file, now read that file" chains. That means less context accumulation overall, which is where token costs really compound.
+
+## How it works
+
+The indexer uses `golang.org/x/tools/go/packages` to perform full type-checked loading of the entire codebase at startup, then builds an in-memory index of all packages, functions, types, variables, and constants. The index is queried by MCP tools without re-parsing source files.
+
+## Security
+
+go-llm-lens is designed to be safe to run alongside an AI assistant:
+
+- **Read-only.** The server never writes to disk, executes shell commands, or makes network calls. It only reads Go source files via the standard `go/packages` loader.
+- **No network surface.** Transport is stdio only. There is no HTTP server and no open port.
+- **Scoped to `--root`.** The indexer only processes source files that physically reside under the directory you specify. Files outside that tree are never read.
+- **Input length limits.** All string arguments sent by the LLM are capped at 2 048 bytes before any handler logic runs, preventing resource exhaustion from oversized inputs.
+- **Minimal token footprint.** Tools return structured JSON containing only the fields the LLM needs — signatures, types, locations, doc comments — rather than raw source files. Unexported symbols are omitted by default. This keeps context window usage predictable and small regardless of codebase size.
+- **Dependency vulnerability scanning.** CI runs [`govulncheck`](https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck) on every push to catch known CVEs in dependencies.
+- **Security linting.** [`gosec`](https://github.com/securego/gosec) is enabled in the golangci-lint configuration.
+- **Pinned CI actions.** Every GitHub Actions step is pinned to an immutable commit SHA to prevent supply-chain attacks via mutable tags.
+- **Signed and attested releases.** All release artifacts are signed with [Sigstore](https://www.sigstore.dev/) keyless signing and include [SLSA provenance attestations](https://slsa.dev/). Verify a download:
+
+  ```bash
+  # Verify signature
+  cosign verify-blob \
+    --certificate-identity-regexp='github.com/tender-barbarian/go-llm-lens' \
+    --certificate-oidc-issuer='https://token.actions.githubusercontent.com' \
+    --bundle checksums.txt.bundle \
+    checksums.txt
+
+  # Verify SLSA provenance
+  gh attestation verify checksums.txt \
+    --repo tender-barbarian/go-llm-lens
+  ```
+
+## Limitations
+
+- **Codebase must build.** Full type checking requires the code to compile. Broken packages are skipped with a warning.
+- **Dependencies must be available.** Run `go mod download` in the target codebase before starting the server.
+- **Index is built at startup.** Changes to the codebase require restarting the server.
+- **One codebase per server instance.** Use multiple server instances for multiple codebases.
+- **Standard library not indexed.** Only packages under the module root (`./...`) are indexed.
+
 ## Prerequisites
 
 - Go 1.25+
@@ -127,39 +181,6 @@ Finds all concrete types in the indexed codebase that implement a given interfac
 **Output:** Array of `{ name, package, location, implements_via }` where `implements_via` is `"value"` or `"pointer"`.
 
 Uses `types.Implements` from `go/types` for precise, type-system-accurate results.
-
-## How it works
-
-The indexer uses `golang.org/x/tools/go/packages` to perform full type-checked loading of the entire codebase at startup, then builds an in-memory index of all packages, functions, types, variables, and constants. The index is queried by MCP tools without re-parsing source files.
-
-## Security
-
-go-llm-lens is designed to be safe to run alongside an AI assistant:
-
-- **Read-only.** The server never writes to disk, executes shell commands, or makes network calls. It only reads Go source files via the standard `go/packages` loader.
-- **No network surface.** Transport is stdio only. There is no HTTP server and no open port.
-- **Scoped to `--root`.** The indexer only processes source files that physically reside under the directory you specify. Files outside that tree are never read.
-- **Input length limits.** All string arguments sent by the LLM are capped at 2 048 bytes before any handler logic runs.
-- **Dependency vulnerability scanning.** CI runs [`govulncheck`](https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck) on every push to catch known CVEs in dependencies.
-- **Security linting.** [`gosec`](https://github.com/securego/gosec) is enabled in the golangci-lint configuration.
-- **Pinned CI actions.** Every GitHub Actions step is pinned to an immutable commit SHA to prevent supply-chain attacks via mutable tags.
-- **Signed release binaries.** Release checksums are signed with [Sigstore](https://www.sigstore.dev/) keyless signing. Verify a download with:
-
-  ```bash
-  cosign verify-blob \
-    --certificate-identity-regexp='github.com/tender-barbarian/go-llm-lens' \
-    --certificate-oidc-issuer='https://token.actions.githubusercontent.com' \
-    --bundle checksums.txt.bundle \
-    checksums.txt
-  ```
-
-## Limitations
-
-- **Codebase must build.** Full type checking requires the code to compile. Broken packages are skipped with a warning.
-- **Dependencies must be available.** Run `go mod download` in the target codebase before starting the server.
-- **Index is built at startup.** Changes to the codebase require restarting the server.
-- **One codebase per server instance.** Use multiple server instances for multiple codebases.
-- **Standard library not indexed.** Only packages under the module root (`./...`) are indexed.
 
 ## License
 
