@@ -2,6 +2,8 @@
 
 [![CI](https://github.com/tender-barbarian/go-llm-lens/actions/workflows/ci.yml/badge.svg)](https://github.com/tender-barbarian/go-llm-lens/actions/workflows/ci.yml)
 [![Release](https://github.com/tender-barbarian/go-llm-lens/actions/workflows/release.yml/badge.svg)](https://github.com/tender-barbarian/go-llm-lens/releases/latest)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/tender-barbarian/go-llm-lens/badge)](https://securityscorecards.dev/viewer/?uri=github.com/tender-barbarian/go-llm-lens)
+[![Go Report Card](https://goreportcard.com/badge/github.com/tender-barbarian/go-llm-lens)](https://goreportcard.com/report/github.com/tender-barbarian/go-llm-lens)
 
 An MCP (Model Context Protocol) server that enables LLMs like Claude to navigate and understand Go codebases through full type-checked AST analysis.
 
