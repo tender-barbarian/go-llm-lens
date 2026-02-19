@@ -57,7 +57,8 @@ func getFunctionHandler(f *finder.Finder) server.ToolHandlerFunc {
 
 		// Method: TypeName.MethodName
 		if typeName, methodName, ok := strings.Cut(name, "."); ok {
-			for _, t := range pkg.Types {
+			for i := range pkg.Types {
+				t := &pkg.Types[i]
 				if t.Name != typeName {
 					continue
 				}
@@ -100,7 +101,8 @@ func getTypeHandler(f *finder.Finder) server.ToolHandlerFunc {
 			return nil, fmt.Errorf("package %q not found", pkgPath)
 		}
 
-		for _, t := range pkg.Types {
+		for i := range pkg.Types {
+			t := &pkg.Types[i]
 			if t.Name == name {
 				return jsonResult(t)
 			}

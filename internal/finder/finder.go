@@ -23,7 +23,7 @@ func New(idx *indexer.Indexer) *Finder {
 // All matches are returned; the caller can filter by Kind or Package.
 func (f *Finder) FindSymbol(name string) []symtab.SymbolRef {
 	var refs []symtab.SymbolRef
-	for _, pkg := range f.idx.PkgInfos {
+	for _, pkg := range f.idx.PkgInfos() {
 		refs = append(refs, refsFromFuncs(pkg, name)...)
 		refs = append(refs, refsFromTypes(pkg, name)...)
 		refs = append(refs, refsFromVars(pkg, name)...)
@@ -105,7 +105,9 @@ func refsFromVars(pkg *symtab.PackageInfo, name string) []symtab.SymbolRef {
 // FindImplementations returns all concrete types in the indexed codebase that implement
 // the named interface. It uses symtab.Implements for precise, type-system-accurate results.
 func (f *Finder) FindImplementations(pkgPath, ifaceName string) ([]symtab.TypeInfo, error) {
-	typPkg, ok := f.idx.TypePkgs[pkgPath]
+	typePkgs := f.idx.TypePkgs()
+
+	typPkg, ok := typePkgs[pkgPath]
 	if !ok {
 		return nil, fmt.Errorf("package %q not found in index", pkgPath)
 	}
@@ -126,8 +128,8 @@ func (f *Finder) FindImplementations(pkgPath, ifaceName string) ([]symtab.TypeIn
 	}
 
 	var result []symtab.TypeInfo
-	for _, pkgInfo := range f.idx.PkgInfos {
-		tp, ok := f.idx.TypePkgs[pkgInfo.ImportPath]
+	for _, pkgInfo := range f.idx.PkgInfos() {
+		tp, ok := typePkgs[pkgInfo.ImportPath]
 		if !ok {
 			continue
 		}
@@ -150,8 +152,9 @@ func (f *Finder) FindImplementations(pkgPath, ifaceName string) ([]symtab.TypeIn
 
 // GetPackages returns all indexed packages.
 func (f *Finder) GetPackages() []*symtab.PackageInfo {
-	result := make([]*symtab.PackageInfo, 0, len(f.idx.PkgInfos))
-	for _, p := range f.idx.PkgInfos {
+	pkgs := f.idx.PkgInfos()
+	result := make([]*symtab.PackageInfo, 0, len(pkgs))
+	for _, p := range pkgs {
 		result = append(result, p)
 	}
 	return result
@@ -159,6 +162,6 @@ func (f *Finder) GetPackages() []*symtab.PackageInfo {
 
 // GetPackage returns a package by import path.
 func (f *Finder) GetPackage(importPath string) (*symtab.PackageInfo, bool) {
-	p, ok := f.idx.PkgInfos[importPath]
+	p, ok := f.idx.PkgInfos()[importPath]
 	return p, ok
 }
