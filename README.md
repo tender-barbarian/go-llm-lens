@@ -1,1 +1,1 @@
-# go-codebase-scanner
+# go-llm-lens
