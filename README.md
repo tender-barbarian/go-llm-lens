@@ -1,22 +1,29 @@
 # go-llm-lens
 
+[![CI](https://github.com/tender-barbarian/go-llm-lens/actions/workflows/ci.yml/badge.svg)](https://github.com/tender-barbarian/go-llm-lens/actions/workflows/ci.yml)
+[![Release](https://github.com/tender-barbarian/go-llm-lens/actions/workflows/release.yml/badge.svg)](https://github.com/tender-barbarian/go-llm-lens/releases/latest)
+
 An MCP (Model Context Protocol) server that enables LLMs like Claude to navigate and understand Go codebases through full type-checked AST analysis.
 
 Instead of reading raw source files line by line, an LLM can call structured tools to explore packages, find symbols, inspect function signatures and type definitions, and discover interface implementations.
 
 ## Prerequisites
 
-- Go 1.22+
+- Go 1.25+
 - The target codebase must compile cleanly (`go build ./...` passes)
 - Dependencies must be downloaded (`go mod download` has been run)
 
 ## Installation
 
+**Download a pre-built binary** from the [latest release](https://github.com/tender-barbarian/go-llm-lens/releases/latest) for your platform (Linux, macOS, Windows — amd64 and arm64).
+
+**Or install with Go:**
+
 ```bash
 go install github.com/tender-barbarian/go-llm-lens/cmd/server@latest
 ```
 
-Or build from source:
+**Or build from source:**
 
 ```bash
 git clone https://github.com/tender-barbarian/go-llm-lens
