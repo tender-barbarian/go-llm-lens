@@ -1,4 +1,4 @@
-# go-llm-lens
+# Go LLM Lens
 
 [![CI](https://github.com/tender-barbarian/go-llm-lens/actions/workflows/ci.yml/badge.svg)](https://github.com/tender-barbarian/go-llm-lens/actions/workflows/ci.yml)
 [![Release](https://github.com/tender-barbarian/go-llm-lens/actions/workflows/release.yml/badge.svg)](https://github.com/tender-barbarian/go-llm-lens/releases/latest)
@@ -128,6 +128,27 @@ Uses `types.Implements` from `go/types` for precise, type-system-accurate result
 ## How it works
 
 The indexer uses `golang.org/x/tools/go/packages` to perform full type-checked loading of the entire codebase at startup, then builds an in-memory index of all packages, functions, types, variables, and constants. The index is queried by MCP tools without re-parsing source files.
+
+## Security
+
+go-llm-lens is designed to be safe to run alongside an AI assistant:
+
+- **Read-only.** The server never writes to disk, executes shell commands, or makes network calls. It only reads Go source files via the standard `go/packages` loader.
+- **No network surface.** Transport is stdio only. There is no HTTP server and no open port.
+- **Scoped to `--root`.** The indexer only processes source files that physically reside under the directory you specify. Files outside that tree are never read.
+- **Input length limits.** All string arguments sent by the LLM are capped at 2 048 bytes before any handler logic runs.
+- **Dependency vulnerability scanning.** CI runs [`govulncheck`](https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck) on every push to catch known CVEs in dependencies.
+- **Security linting.** [`gosec`](https://github.com/securego/gosec) is enabled in the golangci-lint configuration.
+- **Pinned CI actions.** Every GitHub Actions step is pinned to an immutable commit SHA to prevent supply-chain attacks via mutable tags.
+- **Signed release binaries.** Release checksums are signed with [Sigstore](https://www.sigstore.dev/) keyless signing. Verify a download with:
+
+  ```bash
+  cosign verify-blob \
+    --certificate-identity-regexp='github.com/tender-barbarian/go-llm-lens' \
+    --certificate-oidc-issuer='https://token.actions.githubusercontent.com' \
+    --bundle checksums.txt.bundle \
+    checksums.txt
+  ```
 
 ## Limitations
 
