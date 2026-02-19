@@ -37,3 +37,6 @@ jobs:
 
       - name: Build
         run: go build ./...
+
+      - name: Check for vulnerabilities
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
