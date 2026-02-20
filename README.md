@@ -10,6 +10,12 @@ An MCP (Model Context Protocol) server that enables LLMs like Claude to navigate
 
 Instead of reading raw source files line by line, an LLM can call structured tools to explore packages, find symbols, inspect function signatures and type definitions, and discover interface implementations.
 
+The main goal is to save tokens on constant re-learning of the codebase.
+
+## How it works
+
+The indexer uses `golang.org/x/tools/go/packages` to perform full type-checked loading of the entire codebase at startup, then builds an in-memory index of all packages, functions, types, variables, and constants. The index is queried by MCP tools without re-parsing source files.
+
 **Where it saves tokens:**
 
 - Instead of reading entire files to find a function, `get_function` returns just that function's source
@@ -25,13 +31,44 @@ Instead of reading raw source files line by line, an LLM can call structured too
 
 The bigger win is probably fewer round trips — less searching in the dark, fewer "read this file, now read that file" chains. That means less context accumulation overall, which is where token costs really compound.
 
-## How it works
+## Benchmarks
 
-The indexer uses `golang.org/x/tools/go/packages` to perform full type-checked loading of the entire codebase at startup, then builds an in-memory index of all packages, functions, types, variables, and constants. The index is queried by MCP tools without re-parsing source files.
+### go-llm-lens vs Glob/Grep — Token Usage Benchmark
+
+**Task:** Describe the sample codebase (github.com/tender-barbarian/gniot)
+**Model:** claude-opus-4-6
+**Date:** 2026-02-20
+
+### Results
+
+| Metric                  |   Glob/Grep | go-llm-lens |
+|-------------------------|------------:|------------:|
+| Input tokens            |          10 |          14 |
+| Output tokens           |       6,004 |       6,483 |
+| Cache read tokens       |     338,868 |     364,173 |
+| Cache creation tokens   |      73,719 |      35,612 |
+| **Effective tokens** *  | **132,050** |  **87,430** |
+| **Cost (USD)**          |  **$0.781** |  **$0.606** |
+| Permission denials      |           0 |           0 |
+
+\* `input + output + cache_read × 0.1 + cache_creation × 1.25`  (reflects Opus 4.6 billing weights)
+
+### Verdict
+
+**go-llm-lens used ~34% fewer effective tokens and cost 22% less ($0.17 saved).**
+
+The primary driver was cache creation tokens — the most expensive token type at 1.25× input price. `go-llm-lens` produced roughly half the cache creation (35k vs 73k) because it returns targeted structured data rather than raw file contents, keeping less new material in the context cache.
+
+### Notes
+
+- `go-llm-lens` session used Haiku for MCP tool orchestration (886 in / 1,263 out via `claude-haiku-4-5`) — this overhead is cheap and confirms tools actually ran
+- Results may vary by task type; symbol lookup tasks likely favour `go-llm-lens` more than broad narrative tasks like this one
 
 ## Security
 
-go-llm-lens is designed to be safe to run alongside an AI assistant:
+**Seems like since the introduction of AI-assisted coding security became an afterthought. A lot of people are rightfully afraid of introducing AI slop into their workflows. As such I took special care to use proper security measures in this project.**
+
+`go-llm-lens` is designed to be safe to run alongside an AI assistant:
 
 - **Read-only.** The server never writes to disk, executes shell commands, or makes network calls. It only reads Go source files via the standard `go/packages` loader.
 - **No network surface.** Transport is stdio only. There is no HTTP server and no open port.
