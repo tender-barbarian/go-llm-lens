@@ -190,7 +190,7 @@ Returns full details for a specific function or method.
 | `package` | string | yes      | Package import path                             |
 | `name`    | string | yes      | Function name, or `TypeName.MethodName` for methods |
 
-**Output:** Full signature, parameter names and types, return types, doc comment, file and line.
+**Output:** Full signature, parameter names and types, return types, doc comment, implementation body, file and line.
 
 ### `get_type`
 

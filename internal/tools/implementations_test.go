@@ -47,6 +47,7 @@ func TestFindImplementationsHandler(t *testing.T) {
 							Receiver:  "*example.com/testdata/greeter.English",
 							Signature: "func (e *example.com/testdata/greeter.English) Greet(name string) string",
 							Doc:       "Greet returns a greeting.",
+							Body:      "{\n\treturn e.Prefix + name\n}",
 						},
 						{
 							Name:      "BlankReceiver",
@@ -54,6 +55,7 @@ func TestFindImplementationsHandler(t *testing.T) {
 							Receiver:  "*example.com/testdata/greeter.English",
 							Signature: "func (*example.com/testdata/greeter.English) BlankReceiver()",
 							Doc:       "BlankReceiver exercises blank-receiver signature formatting.",
+							Body:      "{\n}",
 						},
 					},
 				},
@@ -69,6 +71,7 @@ func TestFindImplementationsHandler(t *testing.T) {
 							Receiver:  "example.com/testdata/greeter.Formal",
 							Signature: "func (f example.com/testdata/greeter.Formal) Greet(name string) string",
 							Doc:       "Greet returns a formal greeting.",
+							Body:      "{\n\treturn \"Dear \" + name\n}",
 						},
 					},
 				},
