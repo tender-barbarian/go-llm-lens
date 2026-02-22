@@ -362,6 +362,7 @@ func (idx *Indexer) buildBodyMap(files []*ast.File) map[token.Pos]string {
 				continue
 			}
 			var buf bytes.Buffer
+			// Best-effort: skip body if printing fails (e.g. malformed AST node).
 			if err := printer.Fprint(&buf, idx.fset, fd.Body); err == nil {
 				bodies[fd.Name.Pos()] = buf.String()
 			}

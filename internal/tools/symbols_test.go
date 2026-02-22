@@ -154,9 +154,7 @@ func TestGetFunctionHandler(t *testing.T) {
 			if tt.expected.Doc != "" {
 				assert.Contains(t, actual.Doc, tt.expected.Doc)
 			}
-			if tt.expected.Body != "" {
-				assert.Equal(t, tt.expected.Body, actual.Body)
-			}
+			assert.Equal(t, tt.expected.Body, actual.Body)
 		})
 	}
 }
