@@ -14,6 +14,8 @@ import (
 	"github.com/tender-barbarian/go-llm-lens/internal/tools"
 )
 
+var version = "dev"
+
 func main() {
 	if err := run(); err != nil {
 		log.Fatal(err)
@@ -55,7 +57,7 @@ func run() error {
 		}
 	}()
 
-	s := server.NewMCPServer("go-llm-lens", "0.1.0")
+	s := server.NewMCPServer("go-llm-lens", version)
 	tools.Register(s, f)
 
 	if err := server.ServeStdio(s); err != nil {

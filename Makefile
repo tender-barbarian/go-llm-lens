@@ -1,12 +1,13 @@
 BINARY   := go-llm-lens
 CMD      := ./cmd/server
+VERSION  := $(shell git describe --tags --always --dirty)
 
 .PHONY: all build test lint vet check clean
 
 all: check build
 
 build:
-	go build -o $(BINARY) $(CMD)
+	go build -ldflags "-X main.version=$(VERSION)" -o $(BINARY) $(CMD)
 
 test:
 	go test -race -count=1 ./...
