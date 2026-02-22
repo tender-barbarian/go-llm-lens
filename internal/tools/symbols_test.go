@@ -32,7 +32,11 @@ func TestFindSymbolHandler(t *testing.T) {
 		{name: "type", symbol: "English", expected: []symtab.SymbolRef{{Kind: symtab.SymbolKindType}}},
 		{name: "const", symbol: "DefaultPrefix", expected: []symtab.SymbolRef{{Kind: symtab.SymbolKindConst}}},
 		{name: "var", symbol: "MaxLength", expected: []symtab.SymbolRef{{Kind: symtab.SymbolKindVar}}},
-		{name: "method across types", symbol: "Greet", expected: []symtab.SymbolRef{{Kind: symtab.SymbolKindMethod}, {Kind: symtab.SymbolKindMethod}, {Kind: symtab.SymbolKindMethod}}},
+		{name: "method across types", symbol: "Greet", expected: []symtab.SymbolRef{
+			{Kind: symtab.SymbolKindMethod, Receiver: "*" + fixturePkg + ".English"},
+			{Kind: symtab.SymbolKindMethod, Receiver: fixturePkg + ".Formal"},
+			{Kind: symtab.SymbolKindMethod, Receiver: fixturePkg + ".Greeter"},
+		}},
 		{name: "method receiver", symbol: "BlankReceiver", expected: []symtab.SymbolRef{{Kind: symtab.SymbolKindMethod, Receiver: "*" + fixturePkg + ".English"}}},
 		{name: "kind filter includes", symbol: "New", kind: "func", expected: []symtab.SymbolRef{{Kind: symtab.SymbolKindFunc}}},
 		{name: "kind filter excludes", symbol: "New", kind: "method"},
@@ -74,9 +78,7 @@ func TestFindSymbolHandler(t *testing.T) {
 				}
 				assert.Equal(t, tt.expected[i].Kind, actual.Kind)
 				assert.Equal(t, fixturePkg, actual.Package)
-				if tt.expected[i].Receiver != "" {
-					assert.Equal(t, tt.expected[i].Receiver, actual.Receiver)
-				}
+				assert.Equal(t, tt.expected[i].Receiver, actual.Receiver)
 			}
 		})
 	}

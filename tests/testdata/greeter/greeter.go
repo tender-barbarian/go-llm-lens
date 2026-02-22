@@ -54,7 +54,8 @@ func MultiNamed(s string) (out string, err error) { return s, nil }
 // Variadic joins strings with a separator.
 func Variadic(sep string, parts ...string) string { return "" }
 
-// BlankReceiver exercises blank-receiver signature formatting.
+// BlankReceiver uses a blank receiver name to verify that the receiver type
+// is still captured correctly when the receiver variable is the blank identifier.
 func (_ *English) BlankReceiver() {}
 
 // Lockable intentionally uses a public struct with embedded sync.Mutex
