@@ -21,6 +21,7 @@ type FuncInfo struct {
 	Receiver  string   `json:"receiver,omitempty"`
 	Signature string   `json:"signature"`
 	Doc       string   `json:"doc,omitempty"`
+	Body      string   `json:"body,omitempty"`
 	Location  Location `json:"location"`
 }
 

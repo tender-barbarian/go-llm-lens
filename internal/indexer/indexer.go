@@ -1,8 +1,10 @@
 package indexer
 
 import (
+	"bytes"
 	"fmt"
 	"go/ast"
+	"go/printer"
 	"go/token"
 	"go/types"
 	"path/filepath"
@@ -85,6 +87,7 @@ func (idx *Indexer) Index() error {
 func (idx *Indexer) indexPackage(pkg *packages.Package) {
 	docs := idx.buildDocMap(pkg.Syntax)
 	fieldDocs := idx.buildFieldDocMap(pkg.Syntax)
+	bodies := idx.buildBodyMap(pkg.Syntax)
 
 	dir := ""
 	if len(pkg.GoFiles) > 0 {
@@ -106,9 +109,9 @@ func (idx *Indexer) indexPackage(pkg *packages.Package) {
 		obj := scope.Lookup(name)
 		switch o := obj.(type) {
 		case *types.Func:
-			info.Funcs = append(info.Funcs, idx.funcInfo(o, pkg.PkgPath, docs))
+			info.Funcs = append(info.Funcs, idx.funcInfo(o, pkg.PkgPath, docs, bodies))
 		case *types.TypeName:
-			info.Types = append(info.Types, idx.typeInfo(o, pkg, docs, fieldDocs))
+			info.Types = append(info.Types, idx.typeInfo(o, pkg, docs, fieldDocs, bodies))
 		case *types.Var:
 			info.Vars = append(info.Vars, idx.varInfo(o, pkg.PkgPath, docs, false))
 		case *types.Const:
@@ -120,7 +123,7 @@ func (idx *Indexer) indexPackage(pkg *packages.Package) {
 }
 
 // funcInfo extracts symtab.funcInfo from a *types.Func.
-func (idx *Indexer) funcInfo(fn *types.Func, pkgPath string, docs map[token.Pos]string) symtab.FuncInfo {
+func (idx *Indexer) funcInfo(fn *types.Func, pkgPath string, docs, bodies map[token.Pos]string) symtab.FuncInfo {
 	sig, ok := fn.Type().(*types.Signature)
 	if !ok {
 		return symtab.FuncInfo{}
@@ -132,12 +135,13 @@ func (idx *Indexer) funcInfo(fn *types.Func, pkgPath string, docs map[token.Pos]
 		Receiver:  idx.receiverString(sig),
 		Signature: idx.buildSignature(fn.Name(), sig.Recv(), sig),
 		Doc:       docs[fn.Pos()],
+		Body:      bodies[fn.Pos()],
 		Location:  symtab.Location{File: pos.Filename, Line: pos.Line},
 	}
 }
 
 // typeInfo extracts symtab.typeInfo from a *types.TypeName.
-func (idx *Indexer) typeInfo(tn *types.TypeName, pkg *packages.Package, docs, fieldDocs map[token.Pos]string) symtab.TypeInfo {
+func (idx *Indexer) typeInfo(tn *types.TypeName, pkg *packages.Package, docs, fieldDocs, bodies map[token.Pos]string) symtab.TypeInfo {
 	pos := idx.fset.Position(tn.Pos())
 	ti := symtab.TypeInfo{
 		Name:     tn.Name(),
@@ -156,10 +160,10 @@ func (idx *Indexer) typeInfo(tn *types.TypeName, pkg *packages.Package, docs, fi
 	case *types.Struct:
 		ti.Kind = symtab.TypeKindStruct
 		ti.Fields, ti.Embeds = idx.structFields(u, fieldDocs)
-		ti.Methods = idx.namedMethods(named, pkg.PkgPath, docs)
+		ti.Methods = idx.namedMethods(named, pkg.PkgPath, docs, bodies)
 	case *types.Interface:
 		ti.Kind = symtab.TypeKindInterface
-		ti.Methods = idx.interfaceMethods(u, pkg.PkgPath, docs)
+		ti.Methods = idx.interfaceMethods(u, pkg.PkgPath, docs, bodies)
 		ti.Embeds = idx.interfaceEmbeds(u)
 	default:
 		if tn.IsAlias() {
@@ -167,7 +171,7 @@ func (idx *Indexer) typeInfo(tn *types.TypeName, pkg *packages.Package, docs, fi
 		} else {
 			ti.Kind = symtab.TypeKindOther
 		}
-		ti.Methods = idx.namedMethods(named, pkg.PkgPath, docs)
+		ti.Methods = idx.namedMethods(named, pkg.PkgPath, docs, bodies)
 	}
 
 	return ti
@@ -205,19 +209,19 @@ func (idx *Indexer) structFields(s *types.Struct, fieldDocs map[token.Pos]string
 }
 
 // namedMethods returns all explicitly declared methods on a named type.
-func (idx *Indexer) namedMethods(named *types.Named, pkgPath string, docs map[token.Pos]string) []symtab.FuncInfo {
+func (idx *Indexer) namedMethods(named *types.Named, pkgPath string, docs, bodies map[token.Pos]string) []symtab.FuncInfo {
 	result := make([]symtab.FuncInfo, 0, named.NumMethods())
 	for m := range named.Methods() {
-		result = append(result, idx.funcInfo(m, pkgPath, docs))
+		result = append(result, idx.funcInfo(m, pkgPath, docs, bodies))
 	}
 	return result
 }
 
 // interfaceMethods returns the explicitly declared methods of an interface type.
-func (idx *Indexer) interfaceMethods(iface *types.Interface, pkgPath string, docs map[token.Pos]string) []symtab.FuncInfo {
+func (idx *Indexer) interfaceMethods(iface *types.Interface, pkgPath string, docs, bodies map[token.Pos]string) []symtab.FuncInfo {
 	result := make([]symtab.FuncInfo, 0, iface.NumExplicitMethods())
 	for m := range iface.ExplicitMethods() {
-		result = append(result, idx.funcInfo(m, pkgPath, docs))
+		result = append(result, idx.funcInfo(m, pkgPath, docs, bodies))
 	}
 	return result
 }
@@ -323,6 +327,25 @@ func (idx *Indexer) buildFieldDocMap(files []*ast.File) map[token.Pos]string {
 		})
 	}
 	return docs
+}
+
+// buildBodyMap extracts the full source text of each function declaration,
+// keyed by the name's position (matching types.Func.Pos()).
+func (idx *Indexer) buildBodyMap(files []*ast.File) map[token.Pos]string {
+	bodies := make(map[token.Pos]string)
+	for _, f := range files {
+		for _, decl := range f.Decls {
+			fd, ok := decl.(*ast.FuncDecl)
+			if !ok || fd.Body == nil {
+				continue
+			}
+			var buf bytes.Buffer
+			if err := printer.Fprint(&buf, idx.fset, fd.Body); err == nil {
+				bodies[fd.Name.Pos()] = buf.String()
+			}
+		}
+	}
+	return bodies
 }
 
 // specDoc returns the doc comment for a spec within a GenDecl.

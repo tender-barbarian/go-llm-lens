@@ -81,13 +81,13 @@ func TestGetFunctionHandler(t *testing.T) {
 			name:         "package-level function",
 			pkg:          fixturePkg,
 			functionName: "New",
-			expected:     &symtab.FuncInfo{Name: "New", Signature: "func New(prefix string)", Doc: "returns an English greeter"},
+			expected:     &symtab.FuncInfo{Name: "New", Signature: "func New(prefix string)", Doc: "returns an English greeter", Body: "{\n\treturn &English{Prefix: prefix}\n}"},
 		},
 		{
 			name:         "method lookup",
 			pkg:          fixturePkg,
 			functionName: "English.Greet",
-			expected:     &symtab.FuncInfo{Name: "Greet", Signature: "Greet(name string) string"},
+			expected:     &symtab.FuncInfo{Name: "Greet", Signature: "Greet(name string) string", Body: "{\n\treturn e.Prefix + name\n}"},
 		},
 		{
 			name:         "package not found",
@@ -141,6 +141,9 @@ func TestGetFunctionHandler(t *testing.T) {
 			}
 			if tt.expected.Doc != "" {
 				assert.Contains(t, actual.Doc, tt.expected.Doc)
+			}
+			if tt.expected.Body != "" {
+				assert.Equal(t, tt.expected.Body, actual.Body)
 			}
 		})
 	}
