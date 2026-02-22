@@ -21,23 +21,29 @@ func TestFindSymbolHandler(t *testing.T) {
 	handler := findSymbolHandler(finder.New(idx))
 
 	tests := []struct {
-		name     string
-		symbol   string
-		kind     string
-		match    string
-		expected []symtab.SymbolRef
+		name        string
+		symbol      string
+		kind        string
+		match       string
+		expected    []symtab.SymbolRef
+		expectedErr string
 	}{
 		{name: "package-level function", symbol: "New", expected: []symtab.SymbolRef{{Kind: symtab.SymbolKindFunc}}},
 		{name: "type", symbol: "English", expected: []symtab.SymbolRef{{Kind: symtab.SymbolKindType}}},
 		{name: "const", symbol: "DefaultPrefix", expected: []symtab.SymbolRef{{Kind: symtab.SymbolKindConst}}},
 		{name: "var", symbol: "MaxLength", expected: []symtab.SymbolRef{{Kind: symtab.SymbolKindVar}}},
-		{name: "method across types", symbol: "Greet", expected: []symtab.SymbolRef{{Kind: symtab.SymbolKindMethod}, {Kind: symtab.SymbolKindMethod}, {Kind: symtab.SymbolKindMethod}}},
+		{name: "method across types", symbol: "Greet", expected: []symtab.SymbolRef{
+			{Kind: symtab.SymbolKindMethod, Receiver: "*" + fixturePkg + ".English"},
+			{Kind: symtab.SymbolKindMethod, Receiver: fixturePkg + ".Formal"},
+			{Kind: symtab.SymbolKindMethod, Receiver: fixturePkg + ".Greeter"},
+		}},
 		{name: "method receiver", symbol: "BlankReceiver", expected: []symtab.SymbolRef{{Kind: symtab.SymbolKindMethod, Receiver: "*" + fixturePkg + ".English"}}},
 		{name: "kind filter includes", symbol: "New", kind: "func", expected: []symtab.SymbolRef{{Kind: symtab.SymbolKindFunc}}},
 		{name: "kind filter excludes", symbol: "New", kind: "method"},
 		{name: "nonexistent symbol", symbol: "NoSuchSymbol"},
 		{name: "prefix match", symbol: "Engl", match: "prefix", expected: []symtab.SymbolRef{{Kind: symtab.SymbolKindType}}},
 		{name: "contains match", symbol: "Length", match: "contains", expected: []symtab.SymbolRef{{Kind: symtab.SymbolKindVar}}},
+		{name: "invalid match mode", symbol: "New", match: "fuzzy", expectedErr: `unknown match mode "fuzzy"`},
 	}
 
 	for _, tt := range tests {
@@ -51,6 +57,11 @@ func TestFindSymbolHandler(t *testing.T) {
 			}
 			req := mcp.CallToolRequest{Params: mcp.CallToolParams{Arguments: args}}
 			resp, err := handler(context.Background(), req)
+			if tt.expectedErr != "" {
+				require.Error(t, err)
+				assert.ErrorContains(t, err, tt.expectedErr)
+				return
+			}
 			require.NoError(t, err)
 
 			content, ok := resp.Content[0].(mcp.TextContent)
@@ -67,9 +78,7 @@ func TestFindSymbolHandler(t *testing.T) {
 				}
 				assert.Equal(t, tt.expected[i].Kind, actual.Kind)
 				assert.Equal(t, fixturePkg, actual.Package)
-				if tt.expected[i].Receiver != "" {
-					assert.Equal(t, tt.expected[i].Receiver, actual.Receiver)
-				}
+				assert.Equal(t, tt.expected[i].Receiver, actual.Receiver)
 			}
 		})
 	}
@@ -154,9 +163,7 @@ func TestGetFunctionHandler(t *testing.T) {
 			if tt.expected.Doc != "" {
 				assert.Contains(t, actual.Doc, tt.expected.Doc)
 			}
-			if tt.expected.Body != "" {
-				assert.Equal(t, tt.expected.Body, actual.Body)
-			}
+			assert.Equal(t, tt.expected.Body, actual.Body)
 		})
 	}
 }

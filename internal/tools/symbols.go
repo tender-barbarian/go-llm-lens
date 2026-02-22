@@ -12,8 +12,8 @@ import (
 )
 
 // findSymbolHandler returns a handler for the find_symbol tool.
-// It searches for an exact symbol name across all indexed packages,
-// with an optional kind filter (func, method, type, var, const).
+// It searches for symbols by name across all indexed packages,
+// with an optional kind filter (func, method, type, var, const) and match mode.
 func findSymbolHandler(f *finder.Finder) server.ToolHandlerFunc {
 	return func(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		name, err := req.RequireString("name")
@@ -22,6 +22,9 @@ func findSymbolHandler(f *finder.Finder) server.ToolHandlerFunc {
 		}
 		kind := req.GetString("kind", "")
 		match := finder.MatchMode(req.GetString("match", string(finder.MatchExact)))
+		if err := match.Validate(); err != nil {
+			return nil, err
+		}
 
 		refs := f.FindSymbol(name, match)
 		if kind != "" {

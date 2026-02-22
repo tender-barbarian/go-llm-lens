@@ -23,7 +23,7 @@ func Register(s *server.MCPServer, f *finder.Finder) {
 
 	s.AddTool(mcp.NewTool("find_symbol",
 		mcp.WithDescription("Searches for a symbol by name across the entire indexed codebase."),
-		mcp.WithString("name", mcp.Required(), mcp.Description("Symbol name (exact match)")),
+		mcp.WithString("name", mcp.Required(), mcp.Description("Symbol name to search for")),
 		mcp.WithString("kind", mcp.Description("Filter by kind: func, method, type, var, const (empty = all)")),
 		mcp.WithString("match", mcp.Description(`Match mode: "exact" (default), "prefix", or "contains"`)),
 	), withLengthCheck(findSymbolHandler(f)))

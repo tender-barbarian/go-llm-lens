@@ -18,13 +18,23 @@ const (
 	MatchContains MatchMode = "contains"
 )
 
+// Validate returns an error if m is not a recognised MatchMode.
+func (m MatchMode) Validate() error {
+	switch m {
+	case MatchExact, MatchPrefix, MatchContains:
+		return nil
+	default:
+		return fmt.Errorf("unknown match mode %q: must be one of exact, prefix, contains", m)
+	}
+}
+
 func matchesQuery(symbolName, query string, mode MatchMode) bool {
 	switch mode {
 	case MatchPrefix:
 		return strings.HasPrefix(symbolName, query)
 	case MatchContains:
 		return strings.Contains(symbolName, query)
-	default:
+	default: // MatchExact, and the zero value "" which callers treat as exact
 		return symbolName == query
 	}
 }

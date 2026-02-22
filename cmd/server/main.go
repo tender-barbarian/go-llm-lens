@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -16,9 +17,42 @@ import (
 
 var version = "dev"
 
+const parentCheckInterval = 5 * time.Second
+
 func main() {
-	if err := run(); err != nil {
-		log.Fatal(err)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go watchParent(ctx, cancel)
+
+	runErr := make(chan error)
+	go func() {
+		runErr <- run()
+	}()
+
+	select {
+	case err := <-runErr:
+		if err != nil {
+			log.Fatal(err)
+		}
+	case <-ctx.Done():
+		os.Exit(0)
+	}
+}
+
+func watchParent(ctx context.Context, cancel context.CancelFunc) {
+	ticker := time.NewTicker(parentCheckInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if os.Getppid() == 1 {
+				cancel()
+				return
+			}
+		}
 	}
 }
 
@@ -46,16 +80,6 @@ func run() error {
 	fmt.Fprintln(os.Stderr, "Index ready.")
 
 	f := finder.New(idx)
-
-	go func() {
-		ticker := time.NewTicker(5 * time.Second)
-		defer ticker.Stop()
-		for range ticker.C {
-			if os.Getppid() == 1 {
-				os.Exit(0)
-			}
-		}
-	}()
 
 	s := server.NewMCPServer("go-llm-lens", version)
 	tools.Register(s, f)

@@ -18,19 +18,19 @@ func TestFindSymbol(t *testing.T) {
 	finder := New(idx)
 
 	tests := []struct {
-		symbol           string
-		mode             MatchMode
-		expectedLen      int               // expected number of results; 0 means expect empty
-		expectedKind     symtab.SymbolKind // empty → expect no results
-		expectedSigHas   string            // substring checked in every Signature when non-empty
-		expectedReceiver string            // exact value checked in every Receiver when non-empty
+		symbol            string
+		mode              MatchMode
+		expectedLen       int               // expected number of results; 0 means expect empty
+		expectedKind      symtab.SymbolKind // empty → expect no results
+		expectedSigHas    string            // substring checked in every Signature when non-empty
+		expectedReceivers []string          // set of allowed receiver values; every result's Receiver must be in this set when non-empty
 	}{
 		{symbol: "New", expectedLen: 1, expectedKind: symtab.SymbolKindFunc, expectedSigHas: "func New("},
 		{symbol: "English", expectedLen: 1, expectedKind: symtab.SymbolKindType},
 		{symbol: "DefaultPrefix", expectedLen: 1, expectedKind: symtab.SymbolKindConst},
 		{symbol: "MaxLength", expectedLen: 1, expectedKind: symtab.SymbolKindVar},
-		{symbol: "Greet", expectedLen: 3, expectedKind: symtab.SymbolKindMethod, expectedSigHas: "func ("},
-		{symbol: "BlankReceiver", expectedLen: 1, expectedKind: symtab.SymbolKindMethod, expectedReceiver: "*" + fixturePkg + ".English"},
+		{symbol: "Greet", expectedLen: 3, expectedKind: symtab.SymbolKindMethod, expectedSigHas: "func (", expectedReceivers: []string{"*" + fixturePkg + ".English", fixturePkg + ".Formal", fixturePkg + ".Greeter"}},
+		{symbol: "BlankReceiver", expectedLen: 1, expectedKind: symtab.SymbolKindMethod, expectedReceivers: []string{"*" + fixturePkg + ".English"}},
 		{symbol: "ThisSymbolDefinitelyDoesNotExist"},
 		{symbol: "Engl", mode: MatchPrefix, expectedLen: 1, expectedKind: symtab.SymbolKindType},
 		{symbol: "Length", mode: MatchContains, expectedLen: 1, expectedKind: symtab.SymbolKindVar},
@@ -50,8 +50,11 @@ func TestFindSymbol(t *testing.T) {
 				if tt.expectedSigHas != "" {
 					assert.Contains(t, r.Signature, tt.expectedSigHas)
 				}
-				if tt.expectedReceiver != "" {
-					assert.Equal(t, tt.expectedReceiver, r.Receiver)
+				if len(tt.expectedReceivers) > 0 {
+					assert.Contains(t, tt.expectedReceivers, r.Receiver)
+				}
+				if r.Kind != symtab.SymbolKindMethod {
+					assert.Empty(t, r.Receiver)
 				}
 			}
 		})

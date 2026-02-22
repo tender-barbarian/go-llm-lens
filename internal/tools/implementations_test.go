@@ -46,7 +46,7 @@ func TestFindImplementationsHandler(t *testing.T) {
 							Package:   fixturePkg,
 							Receiver:  "*example.com/testdata/greeter.English",
 							Signature: "func (*example.com/testdata/greeter.English) BlankReceiver()",
-							Doc:       "BlankReceiver exercises blank-receiver signature formatting.",
+							Doc:       "BlankReceiver uses a blank receiver name to verify that the receiver type\nis still captured correctly when the receiver variable is the blank identifier.",
 							Body:      "{\n}",
 						},
 						{
