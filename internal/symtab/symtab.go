@@ -84,6 +84,7 @@ type SymbolRef struct {
 	Name      string     `json:"name"`
 	Package   string     `json:"package"`
 	Kind      SymbolKind `json:"kind"`
+	Receiver  string     `json:"receiver,omitempty"`
 	Signature string     `json:"signature,omitempty"`
 	Location  Location   `json:"location"`
 }
