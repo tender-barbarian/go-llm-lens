@@ -68,3 +68,10 @@ type Lockable struct {
 type FormalEnglish struct {
 	Formal
 }
+
+// NamedGreeter extends Greeter with a Name method, exercising interface embed
+// method inheritance in the indexer.
+type NamedGreeter interface {
+	Greeter
+	Name() string
+}

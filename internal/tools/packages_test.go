@@ -33,8 +33,8 @@ func TestListPackagesHandler(t *testing.T) {
 		filter   string
 		expected *pkgSummary
 	}{
-		{name: "no filter returns all packages", expected: &pkgSummary{ImportPath: fixturePkg, Name: "greeter", FileCount: 1, FuncCount: 6, TypeCount: 5}},
-		{name: "matching prefix returns package", filter: "example.com", expected: &pkgSummary{ImportPath: fixturePkg, Name: "greeter", FileCount: 1, FuncCount: 6, TypeCount: 5}},
+		{name: "no filter returns all packages", expected: &pkgSummary{ImportPath: fixturePkg, Name: "greeter", FileCount: 1, FuncCount: 6, TypeCount: 6}},
+		{name: "matching prefix returns package", filter: "example.com", expected: &pkgSummary{ImportPath: fixturePkg, Name: "greeter", FileCount: 1, FuncCount: 6, TypeCount: 6}},
 		{name: "non-matching prefix returns empty", filter: "no/match"},
 	}
 
@@ -90,7 +90,7 @@ func TestGetFileSymbolsHandler(t *testing.T) {
 			name:          "relative path returns symbols",
 			file:          "greeter/greeter.go",
 			expectedFuncs: 6,
-			expectedTypes: 5,
+			expectedTypes: 6,
 			expectedVars:  2,
 		},
 		{
@@ -156,7 +156,7 @@ func TestGetFileSymbolsHandlerAbsolutePath(t *testing.T) {
 	err = json.Unmarshal([]byte(content.Text), &actual)
 	require.NoError(t, err)
 	assert.Len(t, actual.Funcs, 6)
-	assert.Len(t, actual.Types, 5)
+	assert.Len(t, actual.Types, 6)
 	assert.Len(t, actual.Vars, 2)
 }
 
@@ -191,7 +191,7 @@ func TestGetPackageSymbolsHandler(t *testing.T) {
 			name:          "exported symbols only",
 			pkg:           fixturePkg,
 			expectedFuncs: 6,
-			expectedTypes: 5,
+			expectedTypes: 6,
 			expectedVars:  2,
 		},
 		{
@@ -199,7 +199,7 @@ func TestGetPackageSymbolsHandler(t *testing.T) {
 			pkg:               fixturePkg,
 			includeUnexported: true,
 			expectedFuncs:     6,
-			expectedTypes:     5,
+			expectedTypes:     6,
 			expectedVars:      2,
 		},
 	}

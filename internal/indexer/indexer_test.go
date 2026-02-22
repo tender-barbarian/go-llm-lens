@@ -139,7 +139,7 @@ func TestIndex(t *testing.T) {
 	assert.Equal(t, "example.com/testdata/greeter", pkg.ImportPath)
 	assert.Len(t, pkg.Files, 1)
 	assert.Len(t, pkg.Funcs, 6)
-	assert.Len(t, pkg.Types, 5)
+	assert.Len(t, pkg.Types, 6)
 	require.Len(t, pkg.Vars, 2)
 
 	findFunc := func(name string) *symtab.FuncInfo {
@@ -193,6 +193,25 @@ func TestIndex(t *testing.T) {
 	require.NotEmpty(t, lockable.Methods)
 	for _, m := range lockable.Methods {
 		assert.True(t, m.IsPromoted, "method %q on Lockable should be promoted", m.Name)
+	}
+
+	// NamedGreeter embeds Greeter — both Greet (from embed) and Name must appear.
+	namedGreeter := findType("NamedGreeter")
+	require.NotNil(t, namedGreeter)
+	assert.Equal(t, symtab.TypeKindInterface, namedGreeter.Kind)
+	assert.Equal(t, []string{"example.com/testdata/greeter.Greeter"}, namedGreeter.Embeds)
+	methodNames := make([]string, len(namedGreeter.Methods))
+	for i, m := range namedGreeter.Methods {
+		methodNames[i] = m.Name
+	}
+	assert.ElementsMatch(t, []string{"Greet", "Name"}, methodNames)
+	for _, m := range namedGreeter.Methods {
+		switch m.Name {
+		case "Greet":
+			assert.True(t, m.IsPromoted, "Greet should be promoted (inherited from Greeter embed)")
+		case "Name":
+			assert.False(t, m.IsPromoted, "Name should not be promoted (declared directly on NamedGreeter)")
+		}
 	}
 
 	// FormalEnglish embeds Formal (same package) — its Greet method is still promoted.

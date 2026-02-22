@@ -228,11 +228,22 @@ func (idx *Indexer) namedMethods(named *types.Named, pkgPath string, docs, bodie
 	return result
 }
 
-// interfaceMethods returns the explicitly declared methods of an interface type.
+// interfaceMethods returns all methods of an interface type, including those
+// inherited from embedded interfaces. Inherited methods are marked IsPromoted=true,
+// consistent with how promoted struct methods are handled.
+//
+// Methods inherited from embedded interfaces keep their original receiver type,
+// so we detect them by comparing the method's receiver against named.
 func (idx *Indexer) interfaceMethods(iface *types.Interface, pkgPath string, docs, bodies map[token.Pos]string) []symtab.FuncInfo {
-	result := make([]symtab.FuncInfo, 0, iface.NumExplicitMethods())
+	result := make([]symtab.FuncInfo, 0, iface.NumMethods())
+	explicit := make(map[*types.Func]bool, iface.NumExplicitMethods())
 	for m := range iface.ExplicitMethods() {
-		result = append(result, idx.funcInfo(m, pkgPath, docs, bodies))
+		explicit[m] = true
+	}
+	for m := range iface.Methods() {
+		fi := idx.funcInfo(m, pkgPath, docs, bodies)
+		fi.IsPromoted = !explicit[m]
+		result = append(result, fi)
 	}
 	return result
 }
