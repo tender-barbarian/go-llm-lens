@@ -24,6 +24,7 @@ func TestFindSymbolHandler(t *testing.T) {
 		name     string
 		symbol   string
 		kind     string
+		match    string
 		expected []symtab.SymbolRef
 	}{
 		{name: "package-level function", symbol: "New", expected: []symtab.SymbolRef{{Kind: symtab.SymbolKindFunc}}},
@@ -34,6 +35,8 @@ func TestFindSymbolHandler(t *testing.T) {
 		{name: "kind filter includes", symbol: "New", kind: "func", expected: []symtab.SymbolRef{{Kind: symtab.SymbolKindFunc}}},
 		{name: "kind filter excludes", symbol: "New", kind: "method"},
 		{name: "nonexistent symbol", symbol: "NoSuchSymbol"},
+		{name: "prefix match", symbol: "Engl", match: "prefix", expected: []symtab.SymbolRef{{Kind: symtab.SymbolKindType}}},
+		{name: "contains match", symbol: "Length", match: "contains", expected: []symtab.SymbolRef{{Kind: symtab.SymbolKindVar}}},
 	}
 
 	for _, tt := range tests {
@@ -41,6 +44,9 @@ func TestFindSymbolHandler(t *testing.T) {
 			args := map[string]any{"name": tt.symbol}
 			if tt.kind != "" {
 				args["kind"] = tt.kind
+			}
+			if tt.match != "" {
+				args["match"] = tt.match
 			}
 			req := mcp.CallToolRequest{Params: mcp.CallToolParams{Arguments: args}}
 			resp, err := handler(context.Background(), req)
@@ -55,7 +61,9 @@ func TestFindSymbolHandler(t *testing.T) {
 
 			assert.Len(t, actuals, len(tt.expected))
 			for i, actual := range actuals {
-				assert.Equal(t, tt.symbol, actual.Name)
+				if tt.match == "" || tt.match == "exact" {
+					assert.Equal(t, tt.symbol, actual.Name)
+				}
 				assert.Equal(t, tt.expected[i].Kind, actual.Kind)
 				assert.Equal(t, fixturePkg, actual.Package)
 			}

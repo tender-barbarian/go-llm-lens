@@ -22,9 +22,10 @@ func Register(s *server.MCPServer, f *finder.Finder) {
 	), withLengthCheck(getPackageSymbolsHandler(f)))
 
 	s.AddTool(mcp.NewTool("find_symbol",
-		mcp.WithDescription("Searches for a symbol by exact name across the entire indexed codebase."),
+		mcp.WithDescription("Searches for a symbol by name across the entire indexed codebase."),
 		mcp.WithString("name", mcp.Required(), mcp.Description("Symbol name (exact match)")),
 		mcp.WithString("kind", mcp.Description("Filter by kind: func, method, type, var, const (empty = all)")),
+		mcp.WithString("match", mcp.Description(`Match mode: "exact" (default), "prefix", or "contains"`)),
 	), withLengthCheck(findSymbolHandler(f)))
 
 	s.AddTool(mcp.NewTool("get_function",
