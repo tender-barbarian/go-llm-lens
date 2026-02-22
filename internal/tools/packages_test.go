@@ -100,6 +100,14 @@ func TestGetFileSymbolsHandler(t *testing.T) {
 			expectedTypes: 0,
 			expectedVars:  0,
 		},
+		{
+			name:              "include_unexported=true same counts when all exported",
+			file:              "greeter/greeter.go",
+			includeUnexported: true,
+			expectedFuncs:     6,
+			expectedTypes:     6,
+			expectedVars:      2,
+		},
 	}
 
 	for _, tt := range tests {

@@ -53,7 +53,7 @@ func getFileSymbolsHandler(f *finder.Finder) server.ToolHandlerFunc {
 	return func(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		file, err := req.RequireString("file")
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("getting file parameter: %w", err)
 		}
 		includeUnexported := req.GetBool("include_unexported", false)
 		isAbs := filepath.IsAbs(file)
@@ -73,10 +73,9 @@ func getFileSymbolsHandler(f *finder.Finder) server.ToolHandlerFunc {
 					funcs = append(funcs, fn)
 				}
 			}
-			for i := range pkg.Types {
-				t := &pkg.Types[i]
+			for _, t := range pkg.Types {
 				if fileMatches(t.Location.File, file, isAbs) {
-					types = append(types, *t)
+					types = append(types, t)
 				}
 			}
 			for _, v := range pkg.Vars {
