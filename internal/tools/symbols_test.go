@@ -21,11 +21,12 @@ func TestFindSymbolHandler(t *testing.T) {
 	handler := findSymbolHandler(finder.New(idx))
 
 	tests := []struct {
-		name     string
-		symbol   string
-		kind     string
-		match    string
-		expected []symtab.SymbolRef
+		name        string
+		symbol      string
+		kind        string
+		match       string
+		expected    []symtab.SymbolRef
+		expectedErr string
 	}{
 		{name: "package-level function", symbol: "New", expected: []symtab.SymbolRef{{Kind: symtab.SymbolKindFunc}}},
 		{name: "type", symbol: "English", expected: []symtab.SymbolRef{{Kind: symtab.SymbolKindType}}},
@@ -38,6 +39,7 @@ func TestFindSymbolHandler(t *testing.T) {
 		{name: "nonexistent symbol", symbol: "NoSuchSymbol"},
 		{name: "prefix match", symbol: "Engl", match: "prefix", expected: []symtab.SymbolRef{{Kind: symtab.SymbolKindType}}},
 		{name: "contains match", symbol: "Length", match: "contains", expected: []symtab.SymbolRef{{Kind: symtab.SymbolKindVar}}},
+		{name: "invalid match mode", symbol: "New", match: "fuzzy", expectedErr: `unknown match mode "fuzzy"`},
 	}
 
 	for _, tt := range tests {
@@ -51,6 +53,11 @@ func TestFindSymbolHandler(t *testing.T) {
 			}
 			req := mcp.CallToolRequest{Params: mcp.CallToolParams{Arguments: args}}
 			resp, err := handler(context.Background(), req)
+			if tt.expectedErr != "" {
+				require.Error(t, err)
+				assert.ErrorContains(t, err, tt.expectedErr)
+				return
+			}
 			require.NoError(t, err)
 
 			content, ok := resp.Content[0].(mcp.TextContent)
