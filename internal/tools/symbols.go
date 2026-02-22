@@ -21,8 +21,9 @@ func findSymbolHandler(f *finder.Finder) server.ToolHandlerFunc {
 			return nil, err
 		}
 		kind := req.GetString("kind", "")
+		match := finder.MatchMode(req.GetString("match", string(finder.MatchExact)))
 
-		refs := f.FindSymbol(name)
+		refs := f.FindSymbol(name, match)
 		if kind != "" {
 			filtered := make([]symtab.SymbolRef, 0, len(refs))
 			for _, r := range refs {

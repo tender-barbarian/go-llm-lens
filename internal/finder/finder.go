@@ -3,10 +3,31 @@ package finder
 import (
 	"fmt"
 	"go/types"
+	"strings"
 
 	"github.com/tender-barbarian/go-llm-lens/internal/indexer"
 	"github.com/tender-barbarian/go-llm-lens/internal/symtab"
 )
+
+// MatchMode controls how symbol names are compared in FindSymbol.
+type MatchMode string
+
+const (
+	MatchExact    MatchMode = "exact"
+	MatchPrefix   MatchMode = "prefix"
+	MatchContains MatchMode = "contains"
+)
+
+func matchesQuery(symbolName, query string, mode MatchMode) bool {
+	switch mode {
+	case MatchPrefix:
+		return strings.HasPrefix(symbolName, query)
+	case MatchContains:
+		return strings.Contains(symbolName, query)
+	default:
+		return symbolName == query
+	}
+}
 
 // Finder queries an Indexer for symbols and type relationships across indexed packages.
 type Finder struct {
@@ -18,25 +39,26 @@ func New(idx *indexer.Indexer) *Finder {
 	return &Finder{idx: idx}
 }
 
-// FindSymbol searches for a symbol by exact name across all indexed packages.
+// FindSymbol searches for symbols matching name across all indexed packages.
 // It matches package-level functions, types, variables, constants, and methods.
+// mode controls how name is compared: exact (default), prefix, or contains.
 // All matches are returned; the caller can filter by Kind or Package.
-func (f *Finder) FindSymbol(name string) []symtab.SymbolRef {
+func (f *Finder) FindSymbol(name string, mode MatchMode) []symtab.SymbolRef {
 	var refs []symtab.SymbolRef
 	for _, pkg := range f.idx.PkgInfos() {
-		refs = append(refs, refsFromFuncs(pkg, name)...)
-		refs = append(refs, refsFromTypes(pkg, name)...)
-		refs = append(refs, refsFromVars(pkg, name)...)
+		refs = append(refs, refsFromFuncs(pkg, name, mode)...)
+		refs = append(refs, refsFromTypes(pkg, name, mode)...)
+		refs = append(refs, refsFromVars(pkg, name, mode)...)
 	}
 	return refs
 }
 
 // refsFromFuncs returns symtab.SymbolRefs for package-level functions matching name.
-func refsFromFuncs(pkg *symtab.PackageInfo, name string) []symtab.SymbolRef {
+func refsFromFuncs(pkg *symtab.PackageInfo, name string, mode MatchMode) []symtab.SymbolRef {
 	var refs []symtab.SymbolRef
 	for i := range pkg.Funcs {
 		f := &pkg.Funcs[i]
-		if f.Name != name {
+		if !matchesQuery(f.Name, name, mode) {
 			continue
 		}
 		refs = append(refs, symtab.SymbolRef{
@@ -51,11 +73,11 @@ func refsFromFuncs(pkg *symtab.PackageInfo, name string) []symtab.SymbolRef {
 }
 
 // refsFromTypes returns symtab.SymbolRefs for named types and their methods matching name.
-func refsFromTypes(pkg *symtab.PackageInfo, name string) []symtab.SymbolRef {
+func refsFromTypes(pkg *symtab.PackageInfo, name string, mode MatchMode) []symtab.SymbolRef {
 	var refs []symtab.SymbolRef
 	for i := range pkg.Types {
 		t := &pkg.Types[i]
-		if t.Name == name {
+		if matchesQuery(t.Name, name, mode) {
 			refs = append(refs, symtab.SymbolRef{
 				Name:     t.Name,
 				Package:  pkg.ImportPath,
@@ -65,7 +87,7 @@ func refsFromTypes(pkg *symtab.PackageInfo, name string) []symtab.SymbolRef {
 		}
 		for j := range t.Methods {
 			m := &t.Methods[j]
-			if m.Name != name {
+			if !matchesQuery(m.Name, name, mode) {
 				continue
 			}
 			refs = append(refs, symtab.SymbolRef{
@@ -81,11 +103,11 @@ func refsFromTypes(pkg *symtab.PackageInfo, name string) []symtab.SymbolRef {
 }
 
 // refsFromVars returns symtab.SymbolRefs for package-level variables and constants matching name.
-func refsFromVars(pkg *symtab.PackageInfo, name string) []symtab.SymbolRef {
+func refsFromVars(pkg *symtab.PackageInfo, name string, mode MatchMode) []symtab.SymbolRef {
 	var refs []symtab.SymbolRef
 	for i := range pkg.Vars {
 		v := &pkg.Vars[i]
-		if v.Name != name {
+		if !matchesQuery(v.Name, name, mode) {
 			continue
 		}
 		kind := symtab.SymbolKindVar

@@ -19,6 +19,7 @@ func TestFindSymbol(t *testing.T) {
 
 	tests := []struct {
 		symbol         string
+		mode           MatchMode
 		expectedLen    int               // expected number of results; 0 means expect empty
 		expectedKind   symtab.SymbolKind // empty → expect no results
 		expectedSigHas string            // substring checked in every Signature when non-empty
@@ -29,11 +30,13 @@ func TestFindSymbol(t *testing.T) {
 		{symbol: "MaxLength", expectedLen: 1, expectedKind: symtab.SymbolKindVar},
 		{symbol: "Greet", expectedLen: 3, expectedKind: symtab.SymbolKindMethod, expectedSigHas: "func ("},
 		{symbol: "ThisSymbolDefinitelyDoesNotExist"},
+		{symbol: "Engl", mode: MatchPrefix, expectedLen: 1, expectedKind: symtab.SymbolKindType},
+		{symbol: "Length", mode: MatchContains, expectedLen: 1, expectedKind: symtab.SymbolKindVar},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.symbol, func(t *testing.T) {
-			refs := finder.FindSymbol(tt.symbol)
+			refs := finder.FindSymbol(tt.symbol, tt.mode)
 			if tt.expectedKind == "" {
 				assert.Empty(t, refs)
 				return
