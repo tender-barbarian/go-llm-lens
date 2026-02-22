@@ -94,6 +94,7 @@ func refsFromTypes(pkg *symtab.PackageInfo, name string, mode MatchMode) []symta
 				Name:      m.Name,
 				Package:   pkg.ImportPath,
 				Kind:      symtab.SymbolKindMethod,
+				Receiver:  m.Receiver,
 				Signature: m.Signature,
 				Location:  m.Location,
 			})
