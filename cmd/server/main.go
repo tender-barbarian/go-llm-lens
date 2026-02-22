@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/mark3labs/mcp-go/server"
 
@@ -43,6 +44,16 @@ func run() error {
 	fmt.Fprintln(os.Stderr, "Index ready.")
 
 	f := finder.New(idx)
+
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+		for range ticker.C {
+			if os.Getppid() == 1 {
+				os.Exit(0)
+			}
+		}
+	}()
 
 	s := server.NewMCPServer("go-llm-lens", "0.1.0")
 	tools.Register(s, f)
