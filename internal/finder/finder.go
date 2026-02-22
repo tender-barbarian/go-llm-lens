@@ -87,7 +87,8 @@ func refsFromTypes(pkg *symtab.PackageInfo, name string, mode MatchMode) []symta
 		}
 		for j := range t.Methods {
 			m := &t.Methods[j]
-			if !matchesQuery(m.Name, name, mode) {
+			// Skip promoted methods — they belong to the embedded type, not this one.
+			if m.IsPromoted || !matchesQuery(m.Name, name, mode) {
 				continue
 			}
 			refs = append(refs, symtab.SymbolRef{

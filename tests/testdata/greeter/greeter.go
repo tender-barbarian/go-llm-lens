@@ -1,6 +1,8 @@
 // Package greeter is a test fixture for the indexer.
 package greeter
 
+import "sync"
+
 // Greeter is the interface for producing greetings.
 type Greeter interface {
 	// Greet returns a greeting string for the given name.
@@ -54,3 +56,15 @@ func Variadic(sep string, parts ...string) string { return "" }
 
 // BlankReceiver exercises blank-receiver signature formatting.
 func (_ *English) BlankReceiver() {}
+
+// Lockable intentionally uses a public struct with embedded sync.Mutex
+// to exercise cross-package promoted method detection in the indexer.
+type Lockable struct {
+	sync.Mutex
+}
+
+// FormalEnglish intentionally uses a public struct with embedded Formal
+// to exercise same-package promoted method detection in the indexer.
+type FormalEnglish struct {
+	Formal
+}

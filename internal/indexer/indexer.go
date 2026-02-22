@@ -208,11 +208,22 @@ func (idx *Indexer) structFields(s *types.Struct, fieldDocs map[token.Pos]string
 	return fields, embeds
 }
 
-// namedMethods returns all explicitly declared methods on a named type.
+// namedMethods returns all methods on a named type, including promoted ones.
+// Promoted methods (accessed through an embedded field) are marked with IsPromoted=true.
+// types.MethodSet stores selections sorted by method name, so iteration order is deterministic.
 func (idx *Indexer) namedMethods(named *types.Named, pkgPath string, docs, bodies map[token.Pos]string) []symtab.FuncInfo {
-	result := make([]symtab.FuncInfo, 0, named.NumMethods())
-	for m := range named.Methods() {
-		result = append(result, idx.funcInfo(m, pkgPath, docs, bodies))
+	mset := types.NewMethodSet(types.NewPointer(named))
+	result := make([]symtab.FuncInfo, 0, mset.Len())
+	for sel := range mset.Methods() {
+		fn, ok := sel.Obj().(*types.Func)
+		if !ok {
+			continue
+		}
+		fi := idx.funcInfo(fn, pkgPath, docs, bodies)
+		if len(sel.Index()) > 1 {
+			fi.IsPromoted = true
+		}
+		result = append(result, fi)
 	}
 	return result
 }

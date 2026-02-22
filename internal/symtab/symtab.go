@@ -16,13 +16,14 @@ type FieldInfo struct {
 
 // FuncInfo describes a function or method.
 type FuncInfo struct {
-	Name      string   `json:"name"`
-	Package   string   `json:"package"`
-	Receiver  string   `json:"receiver,omitempty"`
-	Signature string   `json:"signature"`
-	Doc       string   `json:"doc,omitempty"`
-	Body      string   `json:"body,omitempty"`
-	Location  Location `json:"location"`
+	Name       string   `json:"name"`
+	Package    string   `json:"package"`
+	Receiver   string   `json:"receiver,omitempty"`
+	Signature  string   `json:"signature"`
+	IsPromoted bool     `json:"is_promoted,omitempty"`
+	Doc        string   `json:"doc,omitempty"`
+	Body       string   `json:"body,omitempty"`
+	Location   Location `json:"location"`
 }
 
 // TypeKind classifies a named type.
@@ -41,7 +42,7 @@ type TypeInfo struct {
 	Package  string      `json:"package"`
 	Kind     TypeKind    `json:"kind"`
 	Fields   []FieldInfo `json:"fields,omitempty"`  // struct fields
-	Methods  []FuncInfo  `json:"methods,omitempty"` // declared methods
+	Methods  []FuncInfo  `json:"methods,omitempty"` // declared and promoted methods
 	Embeds   []string    `json:"embeds,omitempty"`  // embedded type names
 	Doc      string      `json:"doc,omitempty"`
 	Location Location    `json:"location"`
