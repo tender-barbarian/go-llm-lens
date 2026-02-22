@@ -40,6 +40,12 @@ func Register(s *server.MCPServer, f *finder.Finder) {
 		mcp.WithString("name", mcp.Required(), mcp.Description("Type name")),
 	), withLengthCheck(getTypeHandler(f)))
 
+	s.AddTool(mcp.NewTool("get_file_symbols",
+		mcp.WithDescription("Returns all symbols defined in a specific file."),
+		mcp.WithString("file", mcp.Required(), mcp.Description("File path (absolute or relative)")),
+		mcp.WithBoolean("include_unexported", mcp.Description("Include unexported symbols (default: false)")),
+	), withLengthCheck(getFileSymbolsHandler(f)))
+
 	s.AddTool(mcp.NewTool("find_implementations",
 		mcp.WithDescription("Finds all concrete types in the indexed codebase that implement a given interface."),
 		mcp.WithString("package", mcp.Required(), mcp.Description("Package import path of the interface")),

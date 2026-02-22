@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -43,6 +44,62 @@ func listPackagesHandler(f *finder.Finder) server.ToolHandlerFunc {
 		}
 		return jsonResult(results)
 	}
+}
+
+// getFileSymbolsHandler returns a handler for the get_file_symbols tool.
+// It returns all symbols defined in the given file across all indexed packages.
+// The file argument may be absolute or relative; relative paths are matched by suffix.
+func getFileSymbolsHandler(f *finder.Finder) server.ToolHandlerFunc {
+	return func(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		file, err := req.RequireString("file")
+		if err != nil {
+			return nil, err
+		}
+		includeUnexported := req.GetBool("include_unexported", false)
+		isAbs := filepath.IsAbs(file)
+
+		type result struct {
+			Funcs []symtab.FuncInfo `json:"funcs"`
+			Types []symtab.TypeInfo `json:"types"`
+			Vars  []symtab.VarInfo  `json:"vars"`
+		}
+
+		var funcs []symtab.FuncInfo
+		var types []symtab.TypeInfo
+		var vars []symtab.VarInfo
+		for _, pkg := range f.GetPackages() {
+			for _, fn := range pkg.Funcs {
+				if fileMatches(fn.Location.File, file, isAbs) {
+					funcs = append(funcs, fn)
+				}
+			}
+			for i := range pkg.Types {
+				t := &pkg.Types[i]
+				if fileMatches(t.Location.File, file, isAbs) {
+					types = append(types, *t)
+				}
+			}
+			for _, v := range pkg.Vars {
+				if fileMatches(v.Location.File, file, isAbs) {
+					vars = append(vars, v)
+				}
+			}
+		}
+		return jsonResult(result{
+			Funcs: filterFuncs(funcs, includeUnexported),
+			Types: filterTypes(types, includeUnexported),
+			Vars:  filterVars(vars, includeUnexported),
+		})
+	}
+}
+
+// fileMatches reports whether locFile (always absolute) matches query.
+// If query is absolute, an exact match is required; otherwise a suffix match is used.
+func fileMatches(locFile, query string, isAbs bool) bool {
+	if isAbs {
+		return locFile == query
+	}
+	return strings.HasSuffix(locFile, "/"+query)
 }
 
 // getPackageSymbolsHandler returns a handler for the get_package_symbols tool.
