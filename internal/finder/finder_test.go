@@ -75,7 +75,7 @@ func TestFindImplementations(t *testing.T) {
 			name:          "finds concrete implementors",
 			pkgPath:       fixturePkg,
 			iface:         "Greeter",
-			expectedNames: []string{"English", "Formal"},
+			expectedNames: []string{"English", "Formal", "FormalEnglish"},
 		},
 		{
 			name:        "package not found",

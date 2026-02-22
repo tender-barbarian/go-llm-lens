@@ -139,7 +139,7 @@ func TestIndex(t *testing.T) {
 	assert.Equal(t, "example.com/testdata/greeter", pkg.ImportPath)
 	assert.Len(t, pkg.Files, 1)
 	assert.Len(t, pkg.Funcs, 6)
-	assert.Len(t, pkg.Types, 3)
+	assert.Len(t, pkg.Types, 5)
 	require.Len(t, pkg.Vars, 2)
 
 	findFunc := func(name string) *symtab.FuncInfo {
@@ -184,4 +184,22 @@ func TestIndex(t *testing.T) {
 	// Spot-check a const and a var.
 	assert.True(t, pkg.Vars[0].IsConst || pkg.Vars[1].IsConst, "expected DefaultPrefix to be a const")
 	assert.False(t, pkg.Vars[0].IsConst && pkg.Vars[1].IsConst, "expected MaxLength to be a var")
+
+	// Lockable embeds sync.Mutex — its methods are promoted from a different package.
+	lockable := findType("Lockable")
+	require.NotNil(t, lockable)
+	assert.Equal(t, symtab.TypeKindStruct, lockable.Kind)
+	assert.Equal(t, []string{"sync.Mutex"}, lockable.Embeds)
+	require.NotEmpty(t, lockable.Methods)
+	for _, m := range lockable.Methods {
+		assert.True(t, m.IsPromoted, "method %q on Lockable should be promoted", m.Name)
+	}
+
+	// FormalEnglish embeds Formal (same package) — its Greet method is still promoted.
+	formalEnglish := findType("FormalEnglish")
+	require.NotNil(t, formalEnglish)
+	assert.Equal(t, symtab.TypeKindStruct, formalEnglish.Kind)
+	require.Len(t, formalEnglish.Methods, 1)
+	assert.Equal(t, "Greet", formalEnglish.Methods[0].Name)
+	assert.True(t, formalEnglish.Methods[0].IsPromoted)
 }
