@@ -174,12 +174,13 @@ Returns all symbols in a package: functions, types, variables, and constants.
 
 Searches for a symbol by name across the entire indexed codebase.
 
-| Field  | Type   | Required | Description                                                          |
-|--------|--------|----------|----------------------------------------------------------------------|
-| `name` | string | yes      | Symbol name (exact match)                                            |
-| `kind` | string | no       | Filter by kind: `func`, `method`, `type`, `var`, `const` (empty = all) |
+| Field   | Type   | Required | Description                                                          |
+|---------|--------|----------|----------------------------------------------------------------------|
+| `name`  | string | yes      | Symbol name to search for                                            |
+| `kind`  | string | no       | Filter by kind: `func`, `method`, `type`, `var`, `const` (empty = all) |
+| `match` | string | no       | Match mode: `exact` (default), `prefix`, or `contains`              |
 
-**Output:** Array of matches with package, kind, signature, location.
+**Output:** Array of matches with package, kind, signature, receiver (for methods), and location.
 
 ### `get_function`
 
@@ -190,7 +191,7 @@ Returns full details for a specific function or method.
 | `package` | string | yes      | Package import path                             |
 | `name`    | string | yes      | Function name, or `TypeName.MethodName` for methods |
 
-**Output:** Full signature, parameter names and types, return types, doc comment, implementation body, file and line.
+**Output:** Full signature, parameter names and types, return types, doc comment, implementation body, `is_promoted` (true for methods promoted from embedded types), file and line.
 
 ### `get_type`
 
@@ -202,9 +203,20 @@ Returns full definition of a type (struct or interface).
 | `name`    | string | yes      | Type name           |
 
 **Output:**
-- For structs: fields with types, struct tags, and comments; all methods; embedded types
+- For structs: fields with types, struct tags, and comments; all methods (with `is_promoted` flag for methods from embedded types); embedded types
 - For interfaces: method signatures with parameter and return types; embedded interfaces
 - Doc comment, file and line
+
+### `get_file_symbols`
+
+Returns all symbols defined in a specific file.
+
+| Field                | Type   | Required | Description                                      |
+|----------------------|--------|----------|--------------------------------------------------|
+| `file`               | string | yes      | File path (absolute or relative)                 |
+| `include_unexported` | bool   | no       | Include unexported symbols (default: false)      |
+
+**Output:** `{ funcs: [...], types: [...], vars: [...] }` scoped to the given file.
 
 ### `find_implementations`
 
