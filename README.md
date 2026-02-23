@@ -52,7 +52,7 @@ The bigger win is probably fewer round trips — less searching in the dark, few
 
 ### Verdict
 
-**go-llm-lens used ~22% fewer effective tokens and cost ~23% less (~$0.06/run saved) in a cold session.**
+**go-llm-lens used \~22% fewer effective tokens and cost \~23% less (\~$0.06/run saved) in a cold session.**
 
 The consistency gap is equally striking: lens has a coefficient of variation of ~3% vs ~9% for Glob/Grep. The structured tool approach takes a predictable path — a handful of targeted calls, compact structured results, done. Glob/Grep lets the model improvise a search strategy each time, so costs swing with how many files it decides to read.
 
