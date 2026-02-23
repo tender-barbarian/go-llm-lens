@@ -80,9 +80,10 @@ func run() error {
 	fmt.Fprintln(os.Stderr, "Index ready.")
 
 	f := finder.New(idx)
+	mem := tools.NewMemoryStore(*root)
 
 	s := server.NewMCPServer("go-llm-lens", version)
-	tools.Register(s, f)
+	tools.Register(s, f, mem)
 
 	if err := server.ServeStdio(s); err != nil {
 		return fmt.Errorf("serving MCP: %w", err)
