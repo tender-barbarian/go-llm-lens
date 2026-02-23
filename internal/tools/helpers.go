@@ -67,6 +67,16 @@ func filterTypes(typs []symtab.TypeInfo, includeUnexported bool) []symtab.TypeIn
 	return result
 }
 
+// stripFuncBodies returns a copy of funcs with the Body field cleared on each element.
+func stripFuncBodies(funcs []symtab.FuncInfo) []symtab.FuncInfo {
+	result := make([]symtab.FuncInfo, len(funcs))
+	copy(result, funcs)
+	for i := range result {
+		result[i].Body = ""
+	}
+	return result
+}
+
 // filterVars returns vars, optionally dropping unexported ones.
 func filterVars(vars []symtab.VarInfo, includeUnexported bool) []symtab.VarInfo {
 	if includeUnexported {

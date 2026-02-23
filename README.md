@@ -88,7 +88,7 @@ Requirements: `claude` CLI in PATH, `jq`, and go-llm-lens configured as an MCP s
 - **No network surface.** Transport is stdio only. There is no HTTP server and no open port.
 - **Scoped to `--root`.** The indexer only processes source files that physically reside under the directory you specify. Files outside that tree are never read.
 - **Input length limits.** All string arguments sent by the LLM are capped at 2 048 bytes before any handler logic runs, preventing resource exhaustion from oversized inputs.
-- **Minimal token footprint.** Tools return structured JSON containing only the fields the LLM needs — signatures, types, locations, doc comments — rather than raw source files. Unexported symbols are omitted by default. This keeps context window usage predictable and small regardless of codebase size.
+- **Minimal token footprint.** Tools return structured JSON containing only the fields the LLM needs — signatures, types, locations, doc comments — rather than raw source files. Unexported symbols and function bodies are omitted by default (`include_unexported` / `include_bodies` opt in). This keeps context window usage predictable and small regardless of codebase size.
 - **Dependency vulnerability scanning.** CI runs [`govulncheck`](https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck) on every push to catch known CVEs in dependencies.
 - **Security linting.** [`gosec`](https://github.com/securego/gosec) is enabled in the golangci-lint configuration.
 - **Pinned CI actions.** Every GitHub Actions step is pinned to an immutable commit SHA to prevent supply-chain attacks via mutable tags.
@@ -181,6 +181,7 @@ Returns all symbols in a package: functions, types, variables, and constants.
 |----------------------|--------|----------|------------------------------------------------|
 | `package`            | string | yes      | Package import path                            |
 | `include_unexported` | bool   | no       | Include unexported symbols (default: false)    |
+| `include_bodies`     | bool   | no       | Include function bodies (default: false)       |
 
 **Output:** `{ funcs: [...], types: [...], vars: [...] }` each with signature and doc comment.
 
@@ -229,6 +230,7 @@ Returns all symbols defined in a specific file.
 |----------------------|--------|----------|--------------------------------------------------|
 | `file`               | string | yes      | File path (absolute or relative)                 |
 | `include_unexported` | bool   | no       | Include unexported symbols (default: false)      |
+| `include_bodies`     | bool   | no       | Include function bodies (default: false)         |
 
 **Output:** `{ funcs: [...], types: [...], vars: [...] }` scoped to the given file.
 

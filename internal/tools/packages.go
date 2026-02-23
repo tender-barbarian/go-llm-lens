@@ -56,6 +56,7 @@ func getFileSymbolsHandler(f *finder.Finder) server.ToolHandlerFunc {
 			return nil, fmt.Errorf("getting file parameter: %w", err)
 		}
 		includeUnexported := req.GetBool("include_unexported", false)
+		includeBodies := req.GetBool("include_bodies", false)
 		isAbs := filepath.IsAbs(file)
 
 		type result struct {
@@ -84,8 +85,12 @@ func getFileSymbolsHandler(f *finder.Finder) server.ToolHandlerFunc {
 				}
 			}
 		}
+		filtered := filterFuncs(funcs, includeUnexported)
+		if !includeBodies {
+			filtered = stripFuncBodies(filtered)
+		}
 		return jsonResult(result{
-			Funcs: filterFuncs(funcs, includeUnexported),
+			Funcs: filtered,
 			Types: filterTypes(types, includeUnexported),
 			Vars:  filterVars(vars, includeUnexported),
 		})
@@ -111,19 +116,24 @@ func getPackageSymbolsHandler(f *finder.Finder) server.ToolHandlerFunc {
 			return nil, err
 		}
 		includeUnexported := req.GetBool("include_unexported", false)
+		includeBodies := req.GetBool("include_bodies", false)
 
 		pkg, ok := f.GetPackage(pkgPath)
 		if !ok {
 			return nil, fmt.Errorf("package %q not found", pkgPath)
 		}
 
+		funcs := filterFuncs(pkg.Funcs, includeUnexported)
+		if !includeBodies {
+			funcs = stripFuncBodies(funcs)
+		}
 		type result struct {
 			Funcs []symtab.FuncInfo `json:"funcs"`
 			Types []symtab.TypeInfo `json:"types"`
 			Vars  []symtab.VarInfo  `json:"vars"`
 		}
 		return jsonResult(result{
-			Funcs: filterFuncs(pkg.Funcs, includeUnexported),
+			Funcs: funcs,
 			Types: filterTypes(pkg.Types, includeUnexported),
 			Vars:  filterVars(pkg.Vars, includeUnexported),
 		})
