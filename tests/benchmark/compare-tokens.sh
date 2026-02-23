@@ -2,7 +2,7 @@
 # compare-tokens.sh
 # Compare token usage between go-llm-lens MCP tools and Glob/Grep for a given task.
 #
-# Usage: compare-tokens.sh [--model MODEL] [--runs N] [--target DIR] [--keep] "<task description>"
+# Usage: compare-tokens.sh [--model MODEL] [--runs N] [--no-memory] [--target DIR] [--keep] "<task description>"
 # Example: compare-tokens.sh --target ~/projects/mylib "find all types that implement the Handler interface"
 #
 # Note: --target must be a Go project with go-llm-lens configured as an MCP server.
@@ -14,6 +14,7 @@ export LC_ALL=C  # ensure awk uses '.' as decimal separator regardless of system
 # ── Defaults ──────────────────────────────────────────────────────────────────
 MODEL="claude-opus-4-6"
 RUNS=1
+NO_MEMORY=false
 KEEP=false
 TARGET="."
 
@@ -22,6 +23,7 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --model)      MODEL="$2";  shift 2 ;;
         --runs|-n)    RUNS="$2";   shift 2 ;;
+        --no-memory)  NO_MEMORY=true; shift ;;
         --target|-t)  TARGET="$2"; shift 2 ;;
         --keep|-k)    KEEP=true;   shift   ;;
         --)           shift; break ;;
@@ -31,7 +33,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ $# -lt 1 ]]; then
-    echo "Usage: $0 [--model MODEL] [--runs|-n N] [--target|-t DIR] [--keep] \"<task description>\"" >&2
+    echo "Usage: $0 [--model MODEL] [--runs|-n N] [--no-memory] [--target|-t DIR] [--keep] \"<task description>\"" >&2
     exit 1
 fi
 
@@ -51,14 +53,22 @@ trap cleanup EXIT
 
 # ── Tool lists and constraints ─────────────────────────────────────────────────
 GLOB_TOOLS="Glob,Grep,Read"
-LENS_TOOLS="mcp__go-llm-lens__find_symbol,mcp__go-llm-lens__get_function,mcp__go-llm-lens__get_type,mcp__go-llm-lens__find_implementations,mcp__go-llm-lens__get_package_symbols,mcp__go-llm-lens__list_packages,Read"
 
 GLOB_CONSTRAINT="You MUST use only Glob and Grep tools for all code exploration. \
 Do NOT use any MCP tools (go-llm-lens or otherwise). Do NOT use Bash."
 
-LENS_CONSTRAINT="You MUST use only go-llm-lens MCP tools for all code exploration: \
+if [[ "$NO_MEMORY" == "true" ]]; then
+    LENS_TOOLS="mcp__go-llm-lens__find_symbol,mcp__go-llm-lens__get_function,mcp__go-llm-lens__get_type,mcp__go-llm-lens__find_implementations,mcp__go-llm-lens__get_package_symbols,mcp__go-llm-lens__list_packages,Read"
+    LENS_CONSTRAINT="You MUST use only go-llm-lens MCP tools for all code exploration: \
 find_symbol, get_function, get_type, find_implementations, get_package_symbols, list_packages. \
 Do NOT use Glob, Grep, or Bash."
+else
+    LENS_TOOLS="mcp__go-llm-lens__find_symbol,mcp__go-llm-lens__get_function,mcp__go-llm-lens__get_type,mcp__go-llm-lens__find_implementations,mcp__go-llm-lens__get_package_symbols,mcp__go-llm-lens__list_packages,mcp__go-llm-lens__write_memory,mcp__go-llm-lens__list_memories,mcp__go-llm-lens__read_memory,mcp__go-llm-lens__delete_memory,Read"
+    LENS_CONSTRAINT="You MUST use only go-llm-lens MCP tools for all code exploration: \
+find_symbol, get_function, get_type, find_implementations, get_package_symbols, list_packages, \
+list_memories, read_memory, write_memory, delete_memory. \
+Do NOT use Glob, Grep, or Bash."
+fi
 
 # ── run_session <label> <constraint> <allowed_tools> <outfile> ────────────────
 run_session() {
@@ -124,29 +134,27 @@ mean_sd() {
          }'
 }
 
-# ── Main loop ──────────────────────────────────────────────────────────────────
+# ── Cache warmup ───────────────────────────────────────────────────────────────
+# Prime the system-prompt cache so neither session pays cache_creation cost
+# for the shared Claude Code context, making per-run ordering irrelevant.
+echo "" >&2
+echo "Model:  $MODEL  |  Target: $TARGET  |  Memory: $( [[ "$NO_MEMORY" == "true" ]] && echo "off" || echo "on" )" >&2
+echo "Task:   $TASK" >&2
+echo "" >&2
+echo "  Warming cache..." >&2
+( cd "$TARGET" && claude -p "Say hi." --output-format json --model "$MODEL" ) \
+    > "$BENCH_TMPDIR/warmup.json" 2>/dev/null || true
+
+TIMESTAMP=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 g_eff_list=()
 l_eff_list=()
 g_cost_list=()
 l_cost_list=()
-g_denials_total=0
-l_denials_total=0
 # Last-run raw values used for single-run detail display
-g_in=0; g_out=0; g_cr=0; g_cc=0; g_cost=0; g_deny=0; g_eff=0
-l_in=0; l_out=0; l_cr=0; l_cc=0; l_cost=0; l_deny=0; l_eff=0
+g_in=0; g_out=0; g_cr=0; g_cc=0; g_cost=0; g_eff=0
+l_in=0; l_out=0; l_cr=0; l_cc=0; l_cost=0; l_eff=0
 
-echo "" >&2
-echo "Model:  $MODEL  |  Runs: $RUNS" >&2
-echo "Target: $TARGET" >&2
-echo "Task:   $TASK" >&2
-echo "" >&2
-
-# ── Cache warmup ───────────────────────────────────────────────────────────────
-# Prime the system-prompt cache so neither session pays cache_creation cost
-# for the shared Claude Code context, making per-run ordering irrelevant.
-echo "  Warming cache..." >&2
-( cd "$TARGET" && claude -p "Say hi." --output-format json --model "$MODEL" ) \
-    > "$BENCH_TMPDIR/warmup.json" 2>/dev/null || true
+echo "  Runs: $RUNS" >&2
 
 for run in $(seq 1 "$RUNS"); do
     echo "--- Run $run / $RUNS ---" >&2
@@ -165,6 +173,15 @@ for run in $(seq 1 "$RUNS"); do
     read -r g_in  g_out  g_cr  g_cc  g_cost  g_deny <<< "$(extract_tokens "$g_file")"
     read -r l_in  l_out  l_cr  l_cc  l_cost  l_deny <<< "$(extract_tokens "$l_file")"
 
+    if [[ "$g_deny" -gt 0 ]]; then
+        echo "  ERROR: Glob/Grep had $g_deny permission denial(s) in run $run — benchmark is invalid" >&2
+        exit 1
+    fi
+    if [[ "$l_deny" -gt 0 ]]; then
+        echo "  ERROR: go-llm-lens had $l_deny permission denial(s) in run $run — benchmark is invalid" >&2
+        exit 1
+    fi
+
     g_eff=$(compute_eff "$g_in" "$g_out" "$g_cr" "$g_cc")
     l_eff=$(compute_eff "$l_in" "$l_out" "$l_cr" "$l_cc")
 
@@ -172,8 +189,6 @@ for run in $(seq 1 "$RUNS"); do
     l_eff_list+=("$l_eff")
     g_cost_list+=("$g_cost")
     l_cost_list+=("$l_cost")
-    g_denials_total=$(( g_denials_total + g_deny ))
-    l_denials_total=$(( l_denials_total + l_deny ))
 
     echo "  Glob/Grep eff=$g_eff cost=\$$g_cost  |  go-llm-lens eff=$l_eff cost=\$$l_cost" >&2
 done
@@ -184,8 +199,6 @@ read -r l_eff_mean  l_eff_sd  <<< "$(printf '%s\n' "${l_eff_list[@]}"  | mean_sd
 read -r g_cost_mean g_cost_sd <<< "$(printf '%s\n' "${g_cost_list[@]}" | mean_sd "%.4f")"
 read -r l_cost_mean l_cost_sd <<< "$(printf '%s\n' "${l_cost_list[@]}" | mean_sd "%.4f")"
 
-TIMESTAMP=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
-
 # ── Print report ───────────────────────────────────────────────────────────────
 echo ""
 echo "═══════════════════════════════════════════════════════════"
@@ -193,6 +206,7 @@ echo "  Token usage comparison"
 printf "  Task:      %s\n" "$TASK"
 printf "  Model:     %s\n" "$MODEL"
 printf "  Runs:      %s\n" "$RUNS"
+printf "  Memory:    %s\n" "$( [[ "$NO_MEMORY" == "true" ]] && echo "off (--no-memory)" || echo "on" )"
 printf "  Timestamp: %s\n" "$TIMESTAMP"
 echo "═══════════════════════════════════════════════════════════"
 
@@ -206,7 +220,6 @@ if [[ $RUNS -eq 1 ]]; then
     printf "  %-26s %12s %12s\n" "──────────────────────────" "──────────" "───────────"
     printf "  %-26s %12d %12d\n" "Effective tokens*"         "$g_eff"    "$l_eff"
     printf "  %-26s %12s %12s\n" "Cost (USD)"                "\$$g_cost" "\$$l_cost"
-    printf "  %-26s %12d %12d\n" "Permission denials"        "$g_deny"   "$l_deny"
 else
     printf "  %-30s %20s %20s\n" "" "Glob/Grep" "go-llm-lens"
     printf "  %-30s %20s %20s\n" "──────────────────────────────" "────────────────────" "────────────────────"
@@ -214,19 +227,11 @@ else
         "${g_eff_mean} ± ${g_eff_sd}" "${l_eff_mean} ± ${l_eff_sd}"
     printf "  %-30s %20s %20s\n" "Cost USD (mean ± sd)" \
         "\$${g_cost_mean} ± ${g_cost_sd}" "\$${l_cost_mean} ± ${l_cost_sd}"
-    printf "  %-30s %20d %20d\n" "Permission denials (total)" "$g_denials_total" "$l_denials_total"
 fi
 
 echo "═══════════════════════════════════════════════════════════"
 echo "  * Effective = input + output + cache_read×0.1 + cache_creation×1.25"
 echo ""
-
-if [[ "$g_denials_total" -gt 0 ]]; then
-    echo "  ⚠  Glob/Grep had $g_denials_total permission denial(s) — benchmark may be invalid"
-fi
-if [[ "$l_denials_total" -gt 0 ]]; then
-    echo "  ⚠  go-llm-lens had $l_denials_total permission denial(s) — benchmark may be invalid"
-fi
 
 diff=$(echo "$g_eff_mean $l_eff_mean" | awk '{printf "%d", $1 - $2}')
 if [[ "$diff" -gt 0 ]]; then

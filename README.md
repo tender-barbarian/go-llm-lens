@@ -38,42 +38,66 @@ The bigger win is probably fewer round trips — less searching in the dark, few
 
 **Task:** Describe the sample codebase (github.com/tender-barbarian/gniot)
 **Model:** claude-opus-4-6
-**Runs:** 9 (3 benchmark executions × 3 runs each)
-**Date:** 2026-02-22
+**Runs:** 3 (cold baseline — no prior project memories)
+**Date:** 2026-02-23
 
 ### Results
 
 | Metric                         |          Glob/Grep |        go-llm-lens |
 |--------------------------------|-------------------:|-------------------:|
-| Effective tokens (mean ± sd) * | 43,373 ± 2,775     | 36,401 ± 1,042     |
-| **Cost USD (mean ± sd)**       | **$0.2561 ± $0.0151** | **$0.2133 ± $0.0078** |
+| Effective tokens (mean ± sd) * | 42,900 ± 3,976     | 33,356 ± 965       |
+| **Cost USD (mean ± sd)**       | **$0.2545 ± $0.0208** | **$0.1967 ± $0.0028** |
 
 \* `input + output + cache_read × 0.1 + cache_creation × 1.25`  (reflects Opus 4.6 billing weights)
 
 ### Verdict
 
-**go-llm-lens used ~16% fewer effective tokens and cost ~17% less ($0.04/run saved).**
+**go-llm-lens used ~22% fewer effective tokens and cost ~23% less (~$0.06/run saved) in a cold session.**
 
-The consistency gap is equally significant: go-llm-lens has a coefficient of variation of ~3% vs ~6% for Glob/Grep. The structured tool approach always takes roughly the same path — one or two targeted calls, structured result, done. Glob/Grep lets the model improvise a search strategy each time, so costs swing based on how many files it decides to read.
+The consistency gap is equally striking: lens has a coefficient of variation of ~3% vs ~9% for Glob/Grep. The structured tool approach takes a predictable path — a handful of targeted calls, compact structured results, done. Glob/Grep lets the model improvise a search strategy each time, so costs swing with how many files it decides to read.
+
+### Memory amortisation
+
+The numbers above reflect a single session with no prior project knowledge. The `write_memory` / `list_memories` tools change the picture significantly across repeated sessions: the first session pays to explore and writes its findings; subsequent sessions read the notes and skip re-discovery entirely.
+
+Observed across three consecutive benchmark executions on the same codebase (Glob/Grep held steady at ~42,000 effective tokens throughout):
+
+| Session | Lens eff. tokens (mean) | vs Glob/Grep |
+|---------|------------------------:|:-------------|
+| 1 — cold | 33,356 | −22% |
+| 2 — warm | ~25,700 | ~−39% |
+| 3 — warmer | ~14,600 | ~−66% |
+
+By the third session, individual runs were completing the same "describe the codebase" task in as few as **~8,000 effective tokens** — roughly a 5× reduction from a cold Glob/Grep session.
+
+Run with and without `--no-memory` to see this amortisation effect on your own codebase (see below).
 
 ### Notes
 
-- Results may vary by task type; symbol lookup tasks (e.g. "find all Handler implementations") are the best case for grep and can match or beat go-llm-lens on small codebases
+- Results may vary by task type; simple symbol lookups on small codebases are where Grep is most competitive and can match go-llm-lens
 - The advantage of go-llm-lens compounds on larger codebases and multi-step exploration tasks where Glob/Grep requires reading many files to build context
+- Memory amortisation only applies to go-llm-lens; Glob/Grep has no equivalent persistence mechanism
 
 ### Running your own benchmark
 
 `tests/benchmark/compare-tokens.sh` runs two back-to-back `claude -p` sessions — one constrained to Glob/Grep and one to go-llm-lens — on the same task, then prints a side-by-side token and cost comparison.
 
 ```bash
-# Target a different library, run 3 times each, keep raw JSON output:
-./tests/benchmark/compare-tokens.sh --target ~/projects/mylib --runs 3 --keep "describe the codebase structure"
+# Single comparison, keep raw JSON output:
+./tests/benchmark/compare-tokens.sh --target ~/projects/mylib --keep "describe the codebase structure"
+
+# Run 3 times each, report mean ± stddev (memories accumulate between lens runs):
+./tests/benchmark/compare-tokens.sh --target ~/projects/mylib --runs 3 "describe the codebase structure"
+
+# Same, but with memory tools disabled — isolates structural tool savings:
+./tests/benchmark/compare-tokens.sh --target ~/projects/mylib --runs 3 --no-memory "describe the codebase structure"
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--model` | `claude-opus-4-6` | Model to use for both sessions |
 | `--runs`/`-n` | `1` | Number of runs per method; reports mean ± stddev when > 1 |
+| `--no-memory` | off | Exclude memory tools from the lens session; useful for isolating structural tool savings from memory amortisation |
 | `--target`/`-t` | `.` | Go project directory to benchmark against |
 | `--keep`/`-k` | off | Keep raw JSON output files instead of deleting them |
 
