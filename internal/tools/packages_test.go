@@ -82,9 +82,11 @@ func TestGetFileSymbolsHandler(t *testing.T) {
 		name              string
 		file              string
 		includeUnexported bool
+		includeBodies     bool
 		expectedFuncs     int
 		expectedTypes     int
 		expectedVars      int
+		wantBodies        bool
 	}{
 		{
 			name:          "relative path returns symbols",
@@ -108,6 +110,22 @@ func TestGetFileSymbolsHandler(t *testing.T) {
 			expectedTypes:     6,
 			expectedVars:      2,
 		},
+		{
+			name:          "bodies stripped by default",
+			file:          "greeter/greeter.go",
+			expectedFuncs: 6,
+			expectedTypes: 6,
+			expectedVars:  2,
+		},
+		{
+			name:          "include_bodies=true returns bodies",
+			file:          "greeter/greeter.go",
+			includeBodies: true,
+			expectedFuncs: 6,
+			expectedTypes: 6,
+			expectedVars:  2,
+			wantBodies:    true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -115,6 +133,9 @@ func TestGetFileSymbolsHandler(t *testing.T) {
 			args := map[string]any{"file": tt.file}
 			if tt.includeUnexported {
 				args["include_unexported"] = true
+			}
+			if tt.includeBodies {
+				args["include_bodies"] = true
 			}
 			req := mcp.CallToolRequest{Params: mcp.CallToolParams{Arguments: args}}
 			res, err := handler(context.Background(), req)
@@ -129,6 +150,13 @@ func TestGetFileSymbolsHandler(t *testing.T) {
 			assert.Len(t, actual.Funcs, tt.expectedFuncs)
 			assert.Len(t, actual.Types, tt.expectedTypes)
 			assert.Len(t, actual.Vars, tt.expectedVars)
+			for _, f := range actual.Funcs {
+				if tt.wantBodies {
+					assert.NotEmpty(t, f.Body, "expected body on %s", f.Name)
+				} else {
+					assert.Empty(t, f.Body, "expected no body on %s", f.Name)
+				}
+			}
 		})
 	}
 }
@@ -185,10 +213,12 @@ func TestGetPackageSymbolsHandler(t *testing.T) {
 		name              string
 		pkg               string
 		includeUnexported bool
+		includeBodies     bool
 		expectedErr       string
 		expectedFuncs     int
 		expectedTypes     int
 		expectedVars      int
+		wantBodies        bool
 	}{
 		{
 			name:        "package not found returns error",
@@ -210,6 +240,22 @@ func TestGetPackageSymbolsHandler(t *testing.T) {
 			expectedTypes:     6,
 			expectedVars:      2,
 		},
+		{
+			name:          "bodies stripped by default",
+			pkg:           fixturePkg,
+			expectedFuncs: 6,
+			expectedTypes: 6,
+			expectedVars:  2,
+		},
+		{
+			name:          "include_bodies=true returns bodies",
+			pkg:           fixturePkg,
+			includeBodies: true,
+			expectedFuncs: 6,
+			expectedTypes: 6,
+			expectedVars:  2,
+			wantBodies:    true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -217,6 +263,9 @@ func TestGetPackageSymbolsHandler(t *testing.T) {
 			args := map[string]any{"package": tt.pkg}
 			if tt.includeUnexported {
 				args["include_unexported"] = true
+			}
+			if tt.includeBodies {
+				args["include_bodies"] = true
 			}
 			req := mcp.CallToolRequest{Params: mcp.CallToolParams{Arguments: args}}
 			res, err := handler(context.Background(), req)
@@ -236,6 +285,13 @@ func TestGetPackageSymbolsHandler(t *testing.T) {
 			assert.Len(t, actual.Funcs, tt.expectedFuncs)
 			assert.Len(t, actual.Types, tt.expectedTypes)
 			assert.Len(t, actual.Vars, tt.expectedVars)
+			for _, f := range actual.Funcs {
+				if tt.wantBodies {
+					assert.NotEmpty(t, f.Body, "expected body on %s", f.Name)
+				} else {
+					assert.Empty(t, f.Body, "expected no body on %s", f.Name)
+				}
+			}
 		})
 	}
 }

@@ -19,6 +19,7 @@ func Register(s *server.MCPServer, f *finder.Finder) {
 		mcp.WithDescription("Returns all symbols in a package: functions, types, variables, and constants."),
 		mcp.WithString("package", mcp.Required(), mcp.Description("Package import path")),
 		mcp.WithBoolean("include_unexported", mcp.Description("Include unexported symbols (default: false)")),
+		mcp.WithBoolean("include_bodies", mcp.Description("Include function bodies (default: false)")),
 	), withLengthCheck(getPackageSymbolsHandler(f)))
 
 	s.AddTool(mcp.NewTool("find_symbol",
@@ -44,6 +45,7 @@ func Register(s *server.MCPServer, f *finder.Finder) {
 		mcp.WithDescription("Returns all symbols defined in a specific file."),
 		mcp.WithString("file", mcp.Required(), mcp.Description("File path (absolute or relative)")),
 		mcp.WithBoolean("include_unexported", mcp.Description("Include unexported symbols (default: false)")),
+		mcp.WithBoolean("include_bodies", mcp.Description("Include function bodies (default: false)")),
 	), withLengthCheck(getFileSymbolsHandler(f)))
 
 	s.AddTool(mcp.NewTool("find_implementations",
