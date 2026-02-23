@@ -22,6 +22,7 @@ The indexer uses `golang.org/x/tools/go/packages` to perform full type-checked l
 - Instead of grepping + reading multiple files to understand a type, `get_type` returns the definition directly
 - `find_implementations` replaces multi-step grep → read → parse workflows
 - Structured results are more compact than raw file content with line numbers
+- Project memory tools persist codebase knowledge across sessions — no repeated orientation at the start of every conversation
 
 **Where it doesn't help much:**
 
@@ -84,11 +85,11 @@ Requirements: `claude` CLI in PATH, `jq`, and go-llm-lens configured as an MCP s
 
 `go-llm-lens` is designed to be safe to run alongside an AI assistant:
 
-- **Read-only.** The server never writes to disk, executes shell commands, or makes network calls. It only reads Go source files via the standard `go/packages` loader.
+- **Minimal write surface.** The server only writes to `.llm-lens/memories.json` within the project root (project memory tools). It never executes shell commands or makes network calls. All other operations are read-only.
 - **No network surface.** Transport is stdio only. There is no HTTP server and no open port.
 - **Scoped to `--root`.** The indexer only processes source files that physically reside under the directory you specify. Files outside that tree are never read.
-- **Input length limits.** All string arguments sent by the LLM are capped at 2 048 bytes before any handler logic runs, preventing resource exhaustion from oversized inputs.
 - **Minimal token footprint.** Tools return structured JSON containing only the fields the LLM needs — signatures, types, locations, doc comments — rather than raw source files. Unexported symbols and function bodies are omitted by default (`include_unexported` / `include_bodies` opt in). This keeps context window usage predictable and small regardless of codebase size.
+- **Input length limits.** String arguments to codebase-query tools are capped at 2 048 bytes before any handler logic runs, preventing resource exhaustion from oversized inputs. Memory tool values are uncapped to allow storing longer notes.
 - **Dependency vulnerability scanning.** CI runs [`govulncheck`](https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck) on every push to catch known CVEs in dependencies.
 - **Security linting.** [`gosec`](https://github.com/securego/gosec) is enabled in the golangci-lint configuration.
 - **Pinned CI actions.** Every GitHub Actions step is pinned to an immutable commit SHA to prevent supply-chain attacks via mutable tags.
@@ -246,6 +247,51 @@ Finds all concrete types in the indexed codebase that implement a given interfac
 **Output:** Array of `{ name, package, location, implements_via }` where `implements_via` is `"value"` or `"pointer"`.
 
 Uses `types.Implements` from `go/types` for precise, type-system-accurate results.
+
+### Project memory
+
+These four tools provide a persistent key/value notepad stored in `.llm-lens/memories.json` at the project root. The file is plain JSON — human-readable, editable, and safe to commit to Git so the whole team shares the same accumulated knowledge.
+
+**Recommended usage:** call `list_memories` at the start of every session, and call `write_memory` proactively whenever you learn something reusable about the codebase.
+
+### `list_memories`
+
+Returns all memory notes for this project as key/value pairs.
+
+No parameters.
+
+**Output:** `{ "key": "value", ... }`
+
+### `write_memory`
+
+Creates or updates a named memory note.
+
+| Field   | Type   | Required | Description  |
+|---------|--------|----------|--------------|
+| `key`   | string | yes      | Note name    |
+| `value` | string | yes      | Note content |
+
+**Output:** `"ok"`
+
+### `read_memory`
+
+Retrieves a single memory note by key. Returns an error if the key does not exist.
+
+| Field | Type   | Required | Description |
+|-------|--------|----------|-------------|
+| `key` | string | yes      | Note name   |
+
+**Output:** The stored string value.
+
+### `delete_memory`
+
+Removes a memory note. Returns an error if the key does not exist.
+
+| Field | Type   | Required | Description |
+|-------|--------|----------|-------------|
+| `key` | string | yes      | Note name   |
+
+**Output:** `"ok"`
 
 ## License
 

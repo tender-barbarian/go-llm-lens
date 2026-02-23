@@ -9,7 +9,7 @@ import (
 
 // Register wires all codebase-scanner MCP tools to s.
 // Each tool delegates to f for querying the indexed codebase.
-func Register(s *server.MCPServer, f *finder.Finder) {
+func Register(s *server.MCPServer, f *finder.Finder, mem *MemoryStore) {
 	s.AddTool(mcp.NewTool("list_packages",
 		mcp.WithDescription("Lists all indexed packages with summary statistics."),
 		mcp.WithString("filter", mcp.Description("Optional prefix filter on import path")),
@@ -53,4 +53,24 @@ func Register(s *server.MCPServer, f *finder.Finder) {
 		mcp.WithString("package", mcp.Required(), mcp.Description("Package import path of the interface")),
 		mcp.WithString("interface", mcp.Required(), mcp.Description("Interface type name")),
 	), withLengthCheck(findImplementationsHandler(f)))
+
+	s.AddTool(mcp.NewTool("write_memory",
+		mcp.WithDescription("Creates or updates a named memory note for this project. Call this proactively whenever you learn something reusable — package ownership, build steps, deprecated components, architectural decisions."),
+		mcp.WithString("key", mcp.Required(), mcp.Description("Note name")),
+		mcp.WithString("value", mcp.Required(), mcp.Description("Note content")),
+	), mem.writeHandler())
+
+	s.AddTool(mcp.NewTool("read_memory",
+		mcp.WithDescription("Retrieves a named memory note for this project."),
+		mcp.WithString("key", mcp.Required(), mcp.Description("Note name")),
+	), mem.readHandler())
+
+	s.AddTool(mcp.NewTool("list_memories",
+		mcp.WithDescription("Returns all memory notes for this project as key/value pairs. Call this at the start of every session to load accumulated project knowledge before exploring the codebase."),
+	), mem.listHandler())
+
+	s.AddTool(mcp.NewTool("delete_memory",
+		mcp.WithDescription("Removes a named memory note for this project."),
+		mcp.WithString("key", mcp.Required(), mcp.Description("Note name")),
+	), mem.deleteHandler())
 }
