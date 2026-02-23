@@ -36,10 +36,10 @@ The bigger win is probably fewer round trips — less searching in the dark, few
 
 ### go-llm-lens vs Glob/Grep — Token Usage Benchmark
 
-**Task:** Describe the sample codebase (github.com/tender-barbarian/gniot)
-**Model:** claude-opus-4-6
-**Runs:** 3 (cold baseline — no prior project memories)
-**Date:** 2026-02-23
+- **Task:** Describe the sample codebase (github.com/tender-barbarian/gniot)
+- **Model:** claude-opus-4-6
+- **Runs:** 3 (cold baseline — no prior project memories)
+- **Date:** 2026-02-23
 
 ### Results
 
@@ -76,7 +76,6 @@ Run with and without `--no-memory` to see this amortisation effect on your own c
 
 - Results may vary by task type; simple symbol lookups on small codebases are where Grep is most competitive and can match go-llm-lens
 - The advantage of go-llm-lens compounds on larger codebases and multi-step exploration tasks where Glob/Grep requires reading many files to build context
-- Memory amortisation only applies to go-llm-lens; Glob/Grep has no equivalent persistence mechanism
 
 ### Running your own benchmark
 
@@ -178,10 +177,35 @@ The server communicates over **stdio** using the MCP protocol.
 |----------|---------|--------------------------------------------|
 | `--root` | `.`     | Root directory of the Go codebase to index |
 
+## LLM Integration
+
+`go-llm-lens` is an MCP server so it can work with any AI coding tool, but it was developed and tested with Claude Code, so here's how to set it up.
+
 ### Add to Claude Code
 
 ```
-claude mcp add --scope user --transport stdio go-llm-lens -- /path/to/go-llm-lens --root /path/to/your/go/repo
+claude mcp add --scope user --transport stdio go-llm-lens -- /path/to/go-llm-lens
+```
+
+### Encourage Claude to use it
+
+Claude won't prefer these tools over Glob/Grep/Read by default. Add the following to your `CLAUDE.md` (global `~/.claude/CLAUDE.md` or project-level):
+
+```markdown
+## Codebase exploration
+**ALWAYS use `go-llm-lens` MCP tools for Go symbol lookup. NEVER use Glob/Grep/Read to explore Go code structure.**
+
+- `list_packages` — list all indexed packages
+- `get_package_symbols` — browse all symbols in a package
+- `get_file_symbols` — list symbols defined in a specific file
+- `find_symbol` — locate any function/type/var/const by name (supports prefix/contains match)
+- `get_function` — read full function/method definition including body
+- `get_type` — read full struct or interface definition
+- `find_implementations` — find all concrete types implementing an interface
+
+Call `list_memories` at the start of every session and `write_memory` proactively to persist codebase knowledge across sessions.
+
+Only fall back to Glob/Grep/Read for non-Go files or when the MCP server is unavailable.
 ```
 
 ## MCP Tools
