@@ -37,32 +37,46 @@ The bigger win is probably fewer round trips — less searching in the dark, few
 
 **Task:** Describe the sample codebase (github.com/tender-barbarian/gniot)
 **Model:** claude-opus-4-6
-**Date:** 2026-02-20
+**Runs:** 9 (3 benchmark executions × 3 runs each)
+**Date:** 2026-02-22
 
 ### Results
 
-| Metric                  |   Glob/Grep | go-llm-lens |
-|-------------------------|------------:|------------:|
-| Input tokens            |          10 |          14 |
-| Output tokens           |       6,004 |       6,483 |
-| Cache read tokens       |     338,868 |     364,173 |
-| Cache creation tokens   |      73,719 |      35,612 |
-| **Effective tokens** *  | **132,050** |  **87,430** |
-| **Cost (USD)**          |  **$0.781** |  **$0.606** |
-| Permission denials      |           0 |           0 |
+| Metric                         |          Glob/Grep |        go-llm-lens |
+|--------------------------------|-------------------:|-------------------:|
+| Effective tokens (mean ± sd) * | 43,373 ± 2,775     | 36,401 ± 1,042     |
+| **Cost USD (mean ± sd)**       | **$0.2561 ± $0.0151** | **$0.2133 ± $0.0078** |
 
 \* `input + output + cache_read × 0.1 + cache_creation × 1.25`  (reflects Opus 4.6 billing weights)
 
 ### Verdict
 
-**go-llm-lens used ~34% fewer effective tokens and cost 22% less ($0.17 saved).**
+**go-llm-lens used ~16% fewer effective tokens and cost ~17% less ($0.04/run saved).**
 
-The primary driver was cache creation tokens — the most expensive token type at 1.25× input price. `go-llm-lens` produced roughly half the cache creation (35k vs 73k) because it returns targeted structured data rather than raw file contents, keeping less new material in the context cache.
+The consistency gap is equally significant: go-llm-lens has a coefficient of variation of ~3% vs ~6% for Glob/Grep. The structured tool approach always takes roughly the same path — one or two targeted calls, structured result, done. Glob/Grep lets the model improvise a search strategy each time, so costs swing based on how many files it decides to read.
 
 ### Notes
 
-- `go-llm-lens` session used Haiku for MCP tool orchestration (886 in / 1,263 out via `claude-haiku-4-5`) — this overhead is cheap and confirms tools actually ran
-- Results may vary by task type; symbol lookup tasks likely favour `go-llm-lens` more than broad narrative tasks like this one
+- Results may vary by task type; symbol lookup tasks (e.g. "find all Handler implementations") are the best case for grep and can match or beat go-llm-lens on small codebases
+- The advantage of go-llm-lens compounds on larger codebases and multi-step exploration tasks where Glob/Grep requires reading many files to build context
+
+### Running your own benchmark
+
+`tests/benchmark/compare-tokens.sh` runs two back-to-back `claude -p` sessions — one constrained to Glob/Grep and one to go-llm-lens — on the same task, then prints a side-by-side token and cost comparison.
+
+```bash
+# Target a different library, run 3 times each, keep raw JSON output:
+./tests/benchmark/compare-tokens.sh --target ~/projects/mylib --runs 3 --keep "describe the codebase structure"
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--model` | `claude-opus-4-6` | Model to use for both sessions |
+| `--runs`/`-n` | `1` | Number of runs per method; reports mean ± stddev when > 1 |
+| `--target`/`-t` | `.` | Go project directory to benchmark against |
+| `--keep`/`-k` | off | Keep raw JSON output files instead of deleting them |
+
+Requirements: `claude` CLI in PATH, `jq`, and go-llm-lens configured as an MCP server in the current project.
 
 ## Security
 
