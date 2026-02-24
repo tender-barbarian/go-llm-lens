@@ -35,6 +35,27 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Sign release artifacts
+        env:
+          COSIGN_YES: "true"
+        run: |
+          for artifact in dist/*.tar.gz dist/*.zip dist/checksums.txt; do
+            cosign sign-blob \
+              --bundle="${artifact}.bundle" \
+              --new-bundle-format=false \
+              --output-signature="${artifact}.sig" \
+              "${artifact}"
+          done
+
+      - name: Upload signatures to release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"
+          for sig in dist/*.sig; do
+            gh release upload "${tag}" "${sig}" --clobber
+          done
+
       - name: Generate SLSA provenance attestation
         uses: actions/attest-build-provenance@c074443f1aee8d4aeeae555aebba3282517141b2  # v3.2.0
         with:
