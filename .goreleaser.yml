@@ -26,18 +26,6 @@ archives:
 checksum:
   name_template: checksums.txt
 
-signs:
-  - cmd: cosign
-    args:
-      - sign-blob
-      - "--bundle=${artifact}.bundle"
-      - "--output-signature=${artifact}.sig"
-      - "${artifact}"
-      - "--yes"
-    artifacts: all
-    output: true
-    signature: "${artifact}.sig"
-
 changelog:
   sort: asc
   filters:
