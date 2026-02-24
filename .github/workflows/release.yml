@@ -42,6 +42,7 @@ jobs:
           for artifact in dist/*.tar.gz dist/*.zip dist/checksums.txt; do
             cosign sign-blob \
               --bundle="${artifact}.bundle" \
+              --new-bundle-format=false \
               --output-signature="${artifact}.sig" \
               "${artifact}"
           done
