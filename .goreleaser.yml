@@ -30,6 +30,7 @@ signs:
   - cmd: cosign
     args:
       - sign-blob
+      - "--bundle=${artifact}.bundle"
       - "--output-signature=${artifact}.sig"
       - "${artifact}"
       - "--yes"
