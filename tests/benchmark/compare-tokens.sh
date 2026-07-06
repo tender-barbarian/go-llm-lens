@@ -2,7 +2,7 @@
 # compare-tokens.sh
 # Compare token usage between go-llm-lens MCP tools and Glob/Grep for a given task.
 #
-# Usage: compare-tokens.sh [--model MODEL] [--runs N] [--no-memory] [--target DIR] [--keep] "<task description>"
+# Usage: compare-tokens.sh [--model MODEL] [--runs N] [--target DIR] [--keep] "<task description>"
 # Example: compare-tokens.sh --target ~/projects/mylib "find all types that implement the Handler interface"
 #
 # Note: --target must be a Go project with go-llm-lens configured as an MCP server.
@@ -14,7 +14,6 @@ export LC_ALL=C  # ensure awk uses '.' as decimal separator regardless of system
 # ── Defaults ──────────────────────────────────────────────────────────────────
 MODEL="claude-opus-4-6"
 RUNS=1
-NO_MEMORY=false
 KEEP=false
 TARGET="."
 
@@ -23,7 +22,6 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --model)      MODEL="$2";  shift 2 ;;
         --runs|-n)    RUNS="$2";   shift 2 ;;
-        --no-memory)  NO_MEMORY=true; shift ;;
         --target|-t)  TARGET="$2"; shift 2 ;;
         --keep|-k)    KEEP=true;   shift   ;;
         --)           shift; break ;;
@@ -33,7 +31,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ $# -lt 1 ]]; then
-    echo "Usage: $0 [--model MODEL] [--runs|-n N] [--no-memory] [--target|-t DIR] [--keep] \"<task description>\"" >&2
+    echo "Usage: $0 [--model MODEL] [--runs|-n N] [--target|-t DIR] [--keep] \"<task description>\"" >&2
     exit 1
 fi
 
@@ -57,18 +55,10 @@ GLOB_TOOLS="Glob,Grep,Read"
 GLOB_CONSTRAINT="You MUST use only Glob and Grep tools for all code exploration. \
 Do NOT use any MCP tools (go-llm-lens or otherwise). Do NOT use Bash."
 
-if [[ "$NO_MEMORY" == "true" ]]; then
-    LENS_TOOLS="mcp__go-llm-lens__find_symbol,mcp__go-llm-lens__get_function,mcp__go-llm-lens__get_type,mcp__go-llm-lens__find_implementations,mcp__go-llm-lens__get_package_symbols,mcp__go-llm-lens__list_packages,Read"
-    LENS_CONSTRAINT="You MUST use only go-llm-lens MCP tools for all code exploration: \
+LENS_TOOLS="mcp__go-llm-lens__find_symbol,mcp__go-llm-lens__get_function,mcp__go-llm-lens__get_type,mcp__go-llm-lens__find_implementations,mcp__go-llm-lens__get_package_symbols,mcp__go-llm-lens__list_packages,Read"
+LENS_CONSTRAINT="You MUST use only go-llm-lens MCP tools for all code exploration: \
 find_symbol, get_function, get_type, find_implementations, get_package_symbols, list_packages. \
 Do NOT use Glob, Grep, or Bash."
-else
-    LENS_TOOLS="mcp__go-llm-lens__find_symbol,mcp__go-llm-lens__get_function,mcp__go-llm-lens__get_type,mcp__go-llm-lens__find_implementations,mcp__go-llm-lens__get_package_symbols,mcp__go-llm-lens__list_packages,mcp__go-llm-lens__write_memory,mcp__go-llm-lens__list_memories,mcp__go-llm-lens__read_memory,mcp__go-llm-lens__delete_memory,Read"
-    LENS_CONSTRAINT="You MUST use only go-llm-lens MCP tools for all code exploration: \
-find_symbol, get_function, get_type, find_implementations, get_package_symbols, list_packages, \
-list_memories, read_memory, write_memory, delete_memory. \
-Do NOT use Glob, Grep, or Bash."
-fi
 
 # ── run_session <label> <constraint> <allowed_tools> <outfile> ────────────────
 run_session() {
@@ -138,7 +128,7 @@ mean_sd() {
 # Prime the system-prompt cache so neither session pays cache_creation cost
 # for the shared Claude Code context, making per-run ordering irrelevant.
 echo "" >&2
-echo "Model:  $MODEL  |  Target: $TARGET  |  Memory: $( [[ "$NO_MEMORY" == "true" ]] && echo "off" || echo "on" )" >&2
+echo "Model:  $MODEL  |  Target: $TARGET" >&2
 echo "Task:   $TASK" >&2
 echo "" >&2
 echo "  Warming cache..." >&2
@@ -206,7 +196,6 @@ echo "  Token usage comparison"
 printf "  Task:      %s\n" "$TASK"
 printf "  Model:     %s\n" "$MODEL"
 printf "  Runs:      %s\n" "$RUNS"
-printf "  Memory:    %s\n" "$( [[ "$NO_MEMORY" == "true" ]] && echo "off (--no-memory)" || echo "on" )"
 printf "  Timestamp: %s\n" "$TIMESTAMP"
 echo "═══════════════════════════════════════════════════════════"
 
