@@ -22,7 +22,6 @@ The indexer uses `golang.org/x/tools/go/packages` to perform full type-checked l
 - Instead of grepping + reading multiple files to understand a type, `get_type` returns the definition directly
 - `find_implementations` replaces multi-step grep → read → parse workflows
 - Structured results are more compact than raw file content with line numbers
-- Project memory tools persist codebase knowledge across sessions — no repeated orientation at the start of every conversation
 
 **Where it doesn't help much:**
 
@@ -38,7 +37,7 @@ The bigger win is probably fewer round trips — less searching in the dark, few
 
 - **Task:** Describe the sample codebase (github.com/tender-barbarian/gniot)
 - **Model:** claude-opus-4-6
-- **Runs:** 3 (cold baseline — no prior project memories)
+- **Runs:** 3
 - **Date:** 2026-02-23
 
 ### Results
@@ -56,22 +55,6 @@ The bigger win is probably fewer round trips — less searching in the dark, few
 
 The consistency gap is equally striking: lens has a coefficient of variation of ~3% vs ~9% for Glob/Grep. The structured tool approach takes a predictable path — a handful of targeted calls, compact structured results, done. Glob/Grep lets the model improvise a search strategy each time, so costs swing with how many files it decides to read.
 
-### Memory amortisation
-
-The numbers above reflect a single session with no prior project knowledge. The `write_memory` / `list_memories` tools change the picture significantly across repeated sessions: the first session pays to explore and writes its findings; subsequent sessions read the notes and skip re-discovery entirely.
-
-Observed across three consecutive benchmark executions on the same codebase (Glob/Grep held steady at ~42,000 effective tokens throughout):
-
-| Session | Lens eff. tokens (mean) | vs Glob/Grep |
-|---------|------------------------:|:-------------|
-| 1 — cold | 33,356 | −22% |
-| 2 — warm | ~25,700 | ~−39% |
-| 3 — warmer | ~14,600 | ~−66% |
-
-By the third session, individual runs were completing the same "describe the codebase" task in as few as **~8,000 effective tokens** — roughly a 5× reduction from a cold Glob/Grep session.
-
-Run with and without `--no-memory` to see this amortisation effect on your own codebase (see below).
-
 ### Notes
 
 - Results may vary by task type; simple symbol lookups on small codebases are where Grep is most competitive and can match go-llm-lens
@@ -85,18 +68,14 @@ Run with and without `--no-memory` to see this amortisation effect on your own c
 # Single comparison, keep raw JSON output:
 ./tests/benchmark/compare-tokens.sh --target ~/projects/mylib --keep "describe the codebase structure"
 
-# Run 3 times each, report mean ± stddev (memories accumulate between lens runs):
+# Run 3 times each, report mean ± stddev:
 ./tests/benchmark/compare-tokens.sh --target ~/projects/mylib --runs 3 "describe the codebase structure"
-
-# Same, but with memory tools disabled — isolates structural tool savings:
-./tests/benchmark/compare-tokens.sh --target ~/projects/mylib --runs 3 --no-memory "describe the codebase structure"
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--model` | `claude-opus-4-6` | Model to use for both sessions |
 | `--runs`/`-n` | `1` | Number of runs per method; reports mean ± stddev when > 1 |
-| `--no-memory` | off | Exclude memory tools from the lens session; useful for isolating structural tool savings from memory amortisation |
 | `--target`/`-t` | `.` | Go project directory to benchmark against |
 | `--keep`/`-k` | off | Keep raw JSON output files instead of deleting them |
 
@@ -108,11 +87,11 @@ Requirements: `claude` CLI in PATH, `jq`, and go-llm-lens configured as an MCP s
 
 `go-llm-lens` is designed to be safe to run alongside an AI assistant:
 
-- **Minimal write surface.** The server only writes to `.llm-lens/memories.json` within the project root (project memory tools). It never executes shell commands or makes network calls. All other operations are read-only.
+- **Read-only.** The server never writes files, executes shell commands, or makes network calls. Every operation is a read against the in-memory index.
 - **No network surface.** Transport is stdio only. There is no HTTP server and no open port.
 - **Scoped to `--root`.** The indexer only processes source files that physically reside under the directory you specify. Files outside that tree are never read.
 - **Minimal token footprint.** Tools return structured JSON containing only the fields the LLM needs — signatures, types, locations, doc comments — rather than raw source files. Unexported symbols and function bodies are omitted by default (`include_unexported` / `include_bodies` opt in). This keeps context window usage predictable and small regardless of codebase size.
-- **Input length limits.** String arguments to codebase-query tools are capped at 2 048 bytes before any handler logic runs, preventing resource exhaustion from oversized inputs. Memory tool values are uncapped to allow storing longer notes.
+- **Input length limits.** String arguments to codebase-query tools are capped at 2 048 bytes before any handler logic runs, preventing resource exhaustion from oversized inputs.
 - **Dependency vulnerability scanning.** CI runs [`govulncheck`](https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck) on every push to catch known CVEs in dependencies.
 - **Security linting.** [`gosec`](https://github.com/securego/gosec) is enabled in the golangci-lint configuration.
 - **Pinned CI actions.** Every GitHub Actions step is pinned to an immutable commit SHA to prevent supply-chain attacks via mutable tags.
@@ -202,8 +181,6 @@ Claude won't prefer these tools over Glob/Grep/Read by default. Add the followin
 - `get_function` — read full function/method definition including body
 - `get_type` — read full struct or interface definition
 - `find_implementations` — find all concrete types implementing an interface
-
-Call `list_memories` at the start of every session and `write_memory` proactively to persist codebase knowledge across sessions.
 
 Only fall back to Glob/Grep/Read for non-Go files or when the MCP server is unavailable.
 ```
@@ -295,51 +272,6 @@ Finds all concrete types in the indexed codebase that implement a given interfac
 **Output:** Array of `{ name, package, location, implements_via }` where `implements_via` is `"value"` or `"pointer"`.
 
 Uses `types.Implements` from `go/types` for precise, type-system-accurate results.
-
-### Project memory
-
-These four tools provide a persistent key/value notepad stored in `.llm-lens/memories.json` at the project root. The file is plain JSON — human-readable, editable, and safe to commit to Git so the whole team shares the same accumulated knowledge.
-
-**Recommended usage:** call `list_memories` at the start of every session, and call `write_memory` proactively whenever you learn something reusable about the codebase.
-
-### `list_memories`
-
-Returns all memory notes for this project as key/value pairs.
-
-No parameters.
-
-**Output:** `{ "key": "value", ... }`
-
-### `write_memory`
-
-Creates or updates a named memory note.
-
-| Field   | Type   | Required | Description  |
-|---------|--------|----------|--------------|
-| `key`   | string | yes      | Note name    |
-| `value` | string | yes      | Note content |
-
-**Output:** `"ok"`
-
-### `read_memory`
-
-Retrieves a single memory note by key. Returns an error if the key does not exist.
-
-| Field | Type   | Required | Description |
-|-------|--------|----------|-------------|
-| `key` | string | yes      | Note name   |
-
-**Output:** The stored string value.
-
-### `delete_memory`
-
-Removes a memory note. Returns an error if the key does not exist.
-
-| Field | Type   | Required | Description |
-|-------|--------|----------|-------------|
-| `key` | string | yes      | Note name   |
-
-**Output:** `"ok"`
 
 ## License
 
