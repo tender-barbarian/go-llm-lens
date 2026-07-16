@@ -5,7 +5,7 @@ go 1.26.4
 require (
 	github.com/mark3labs/mcp-go v0.44.0
 	github.com/stretchr/testify v1.11.1
-	golang.org/x/tools v0.45.0
+	golang.org/x/tools v0.48.0
 )
 
 require (
@@ -20,7 +20,7 @@ require (
 	github.com/spf13/cast v1.7.1 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
-	golang.org/x/mod v0.36.0 // indirect
-	golang.org/x/sync v0.20.0 // indirect
+	golang.org/x/mod v0.38.0 // indirect
+	golang.org/x/sync v0.22.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
